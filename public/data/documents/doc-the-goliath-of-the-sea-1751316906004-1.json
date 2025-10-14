@@ -1,0 +1,482 @@
+{
+  "id": "doc-the-goliath-of-the-sea-1751316906004-1",
+  "title": "The Goliath of the Sea",
+  "author": "Susie Gislason",
+  "pages": [
+    {
+      "number": 1,
+      "content": "The majestic blue whale, the goliath of the sea, certainly stands alone within the animal kingdom for its adaptations beyond its massive size. At 30 metres (98 ft) in length and 190 tonnes (210 short tons) or more in weight, it is the largest existing animal and the heaviest that has ever existed. Despite their incomparable mass, aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction. But there are other reasons for why they are now so endangered. “The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while its Latin designation is Balaenoptera musculus.” (Smith, 2009, p. 79) The blue whale belongs to the Mysteceti suborder of cetaceans, also known as baleen whales, which means they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws. Blue whales feed almost exclusively on krill, though they also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them. “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+    },
+    {
+      "number": 2,
+      "content": "harpoons specifically designed for catching large whales.” (Johnson, 2010, p. 14) This led to the killing of hundreds of thousands of whales up until 1966, when the International Whaling Commission banned the practice. Whales are a widely distributed and diverse group of fully aquatic placental marine mammals. They are an informal grouping within the infraorder Cetacea, usually excluding dolphins and porpoises. Whales, dolphins and porpoises belong to the order Cetartiodactyla, which consists of even-toed ungulates. Their closest living relatives are the hippopotamuses, having diverged about 40 million years ago. The two parvorders of whales, baleen whales (Mysticeti) and toothed whales (Odontoceti), are thought to have split apart around 34 million years ago. Whales consist of eight extant families: Balaenopteridae (the rorquals), Balaenidae (right whales), Cetotheriidae (the pygmy right whale), Eschrichtiidae (the grey whale), Monodontidae (belugas and narwhals), Physeteridae (the sperm whale), Kogiidae (the dwarf and pygmy sperm whale), and Ziphiidae (the beaked whales). Very large, aquatic, marine mammals (order Cetacea) that have a torpedo-shaped body with a thick layer of blubber, paddle-shaped forelimbs but no hind limbs, a horizontally flattened tail, and nostrils that open externally at the top of the head (Whales. 2015) Reference List Whales. (2015). In Merriam-Webster Dictionary online. Retrieved from https://www.merriam-webster.com/dictionary/whales Hal Whitehead, Luke Rendell. (2015). The Cultural Lives of Whales and Dolphins. Daniel A. Greenberg (2003). Whales."
+    }
+  ],
+  "matchCards": [
+    {
+      "id": "mc1",
+      "sourceType": "Internet",
+      "sourceName": "National Geographic",
+      "sourceUrl": "https://national.com/article/479",
+      "matchCount": 4,
+      "similarityPercent": 20,
+      "matchedWordCount": 87,
+      "matches": [
+        {
+          "highlightId": "h1",
+          "contextBefore": "harpoons specifically designed for catching large whales.” (Johnson, 2010, p. ",
+          "matchedText": "14) This led to the killing of hundreds of thousands of whales up until 1966, when the International Whaling Commission banned the practice.",
+          "contextAfter": " Whales are a widely distributed and diverse group of fully aquatic placental marine mammals. They a"
+        },
+        {
+          "highlightId": "h2",
+          "contextBefore": "aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction. ",
+          "matchedText": "But there are other reasons for why they are now so endangered.",
+          "contextAfter": " “The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while"
+        },
+        {
+          "highlightId": "h3",
+          "contextBefore": "ve them to the brink of extinction. But there are other reasons for why they are now so endangered. ",
+          "matchedText": "“The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while its Latin designation is Balaenoptera musculus.",
+          "contextAfter": "” (Smith, 2009, p. 79) The blue whale belongs to the Mysteceti suborder of cetaceans, also known as"
+        },
+        {
+          "highlightId": "h4",
+          "contextBefore": "y also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. ",
+          "matchedText": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+          "contextAfter": " “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+        }
+      ]
+    },
+    {
+      "id": "mc2",
+      "sourceType": "Publication",
+      "sourceName": "Nature – Biology",
+      "sourceUrl": "https://nature.org/nature/insight/727",
+      "matchCount": 4,
+      "similarityPercent": 22,
+      "matchedWordCount": 98,
+      "matches": [
+        {
+          "highlightId": "h5",
+          "contextBefore": "Their closest living relatives are the hippopotamuses, having diverged about 40 million years ago. ",
+          "matchedText": "The two parvorders of whales, baleen whales (Mysticeti) and toothed whales (Odontoceti), are thought to have split apart around 34 million years ago.",
+          "contextAfter": " Whales consist of eight extant families: Balaenopteridae (the rorquals), Balaenidae (right whales),"
+        },
+        {
+          "highlightId": "h6",
+          "contextBefore": "aws. Blue whales feed almost exclusively on krill, though they also take small numbers of copepods. ",
+          "matchedText": "An adult blue whale can eat up to 40 million krill in a day.",
+          "contextAfter": " These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth c"
+        },
+        {
+          "highlightId": "h7",
+          "contextBefore": "y also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. ",
+          "matchedText": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+          "contextAfter": " “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+        },
+        {
+          "highlightId": "h8",
+          "contextBefore": "the upper side of it body, while its Latin designation is Balaenoptera musculus.” (Smith, 2009, p. ",
+          "matchedText": "79) The blue whale belongs to the Mysteceti suborder of cetaceans, also known as baleen whales, which means they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws.",
+          "contextAfter": " Blue whales feed almost exclusively on krill, though they also take small numbers of copepods. An a"
+        }
+      ]
+    },
+    {
+      "id": "mc3",
+      "sourceType": "Submitted Works",
+      "sourceName": "Submitted to Another Institution - 2020 October 09",
+      "sourceUrl": "https://oceanicresearch.com/article/2730",
+      "matchCount": 5,
+      "similarityPercent": 20,
+      "matchedWordCount": 91,
+      "matches": [
+        {
+          "highlightId": "h9",
+          "contextBefore": "they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws. ",
+          "matchedText": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+          "contextAfter": " An adult blue whale can eat up to 40 million krill in a day. These gargantuan beasts used to domina"
+        },
+        {
+          "highlightId": "h10",
+          "contextBefore": "y are an informal grouping within the infraorder Cetacea, usually excluding dolphins and porpoises. ",
+          "matchedText": "Whales, dolphins and porpoises belong to the order Cetartiodactyla, which consists of even-toed ungulates.",
+          "contextAfter": " Their closest living relatives are the hippopotamuses, having diverged about 40 million years ago."
+        },
+        {
+          "highlightId": "h11",
+          "contextBefore": "they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws. ",
+          "matchedText": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+          "contextAfter": " An adult blue whale can eat up to 40 million krill in a day. These gargantuan beasts used to domina"
+        },
+        {
+          "highlightId": "h12",
+          "contextBefore": "",
+          "matchedText": "The Goliath of the Sea Blue Whale - Balaenoptera musculus The majestic blue whale, the goliath of the sea, certainly stands alone within the animal kingdom for its adaptations beyond its massive size.",
+          "contextAfter": " At 30 metres (98 ft) in length and 190 tonnes (210 short tons) or more in weight, it is the largest"
+        },
+        {
+          "highlightId": "h13",
+          "contextBefore": "f thousands of whales up until 1966, when the International Whaling Commission banned the practice. ",
+          "matchedText": "Whales are a widely distributed and diverse group of fully aquatic placental marine mammals.",
+          "contextAfter": " They are an informal grouping within the infraorder Cetacea, usually excluding dolphins and porpois"
+        }
+      ]
+    },
+    {
+      "id": "mc4",
+      "sourceType": "Internet",
+      "sourceName": "WhaleTrust.org",
+      "sourceUrl": "https://www.whaletrust.net/posts/1751315848035",
+      "matchCount": 1,
+      "similarityPercent": 7,
+      "matchedWordCount": 30,
+      "matches": [
+        {
+          "highlightId": "h14",
+          "contextBefore": "sea, certainly stands alone within the animal kingdom for its adaptations beyond its massive size. ",
+          "matchedText": "At 30 metres (98 ft) in length and 190 tonnes (210 short tons) or more in weight, it is the largest existing animal and the heaviest that has ever existed.",
+          "contextAfter": " Despite their incomparable mass, aggressive hunting in the 1900s by whalers seeking whale oil drove"
+        }
+      ]
+    },
+    {
+      "id": "mc5",
+      "sourceType": "Internet",
+      "sourceName": "DeepSeaBlog.net",
+      "sourceUrl": "https://deepseablog.org/deepseablog/insight/712",
+      "matchCount": 4,
+      "similarityPercent": 23,
+      "matchedWordCount": 102,
+      "matches": [
+        {
+          "highlightId": "h15",
+          "contextBefore": "y also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. ",
+          "matchedText": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+          "contextAfter": " “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+        },
+        {
+          "highlightId": "h16",
+          "contextBefore": "e (the sperm whale), Kogiidae (the dwarf and pygmy sperm whale), and Ziphiidae (the beaked whales). ",
+          "matchedText": "Very large, aquatic, marine mammals (order Cetacea) that have a torpedo-shaped body with a thick layer of blubber, paddle-shaped forelimbs but no hind limbs, a horizontally flattened tail, and nostrils that open externally at the top of the head (Whales.",
+          "contextAfter": " 2015) Reference List Whales. (2015). In Merriam-Webster Dictionary online. Retrieved from https://w"
+        },
+        {
+          "highlightId": "h17",
+          "contextBefore": "aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction. ",
+          "matchedText": "But there are other reasons for why they are now so endangered.",
+          "contextAfter": " “The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while"
+        },
+        {
+          "highlightId": "h18",
+          "contextBefore": "tons) or more in weight, it is the largest existing animal and the heaviest that has ever existed. ",
+          "matchedText": "Despite their incomparable mass, aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction.",
+          "contextAfter": " But there are other reasons for why they are now so endangered. “The blue whale’s common name deriv"
+        }
+      ]
+    },
+    {
+      "id": "mc6",
+      "sourceType": "Internet",
+      "sourceName": "ScienceNews.org",
+      "sourceUrl": "https://www.sciencenews.net/posts/1751315848035",
+      "matchCount": 3,
+      "similarityPercent": 16,
+      "matchedWordCount": 69,
+      "matches": [
+        {
+          "highlightId": "h19",
+          "contextBefore": "they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws. ",
+          "matchedText": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+          "contextAfter": " An adult blue whale can eat up to 40 million krill in a day. These gargantuan beasts used to domina"
+        },
+        {
+          "highlightId": "h20",
+          "contextBefore": "e (the sperm whale), Kogiidae (the dwarf and pygmy sperm whale), and Ziphiidae (the beaked whales). ",
+          "matchedText": "Very large, aquatic, marine mammals (order Cetacea) that have a torpedo-shaped body with a thick layer of blubber, paddle-shaped forelimbs but no hind limbs, a horizontally flattened tail, and nostrils that open externally at the top of the head (Whales.",
+          "contextAfter": " 2015) Reference List Whales. (2015). In Merriam-Webster Dictionary online. Retrieved from https://w"
+        },
+        {
+          "highlightId": "h21",
+          "contextBefore": "y are an informal grouping within the infraorder Cetacea, usually excluding dolphins and porpoises. ",
+          "matchedText": "Whales, dolphins and porpoises belong to the order Cetartiodactyla, which consists of even-toed ungulates.",
+          "contextAfter": " Their closest living relatives are the hippopotamuses, having diverged about 40 million years ago."
+        }
+      ]
+    },
+    {
+      "id": "mc7",
+      "sourceType": "Internet",
+      "sourceName": "LiveScience",
+      "sourceUrl": "https://livescience.com/article/2874",
+      "matchCount": 3,
+      "similarityPercent": 16,
+      "matchedWordCount": 70,
+      "matches": [
+        {
+          "highlightId": "h22",
+          "contextBefore": "y also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. ",
+          "matchedText": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+          "contextAfter": " “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+        },
+        {
+          "highlightId": "h23",
+          "contextBefore": "aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction. ",
+          "matchedText": "But there are other reasons for why they are now so endangered.",
+          "contextAfter": " “The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while"
+        },
+        {
+          "highlightId": "h24",
+          "contextBefore": "y also take small numbers of copepods. An adult blue whale can eat up to 40 million krill in a day. ",
+          "matchedText": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+          "contextAfter": " “In 1864, the Norwegian Svend Foyn equipped a steamboat with"
+        }
+      ]
+    },
+    {
+      "id": "mc8",
+      "sourceType": "Publication",
+      "sourceName": "The Ecologist",
+      "sourceUrl": "https://the.com/article/3489",
+      "matchCount": 1,
+      "similarityPercent": 2,
+      "matchedWordCount": 7,
+      "matches": [
+        {
+          "highlightId": "h25",
+          "contextBefore": "trieved from https://www.merriam-webster.com/dictionary/whales Hal Whitehead, Luke Rendell. (2015). ",
+          "matchedText": "The Cultural Lives of Whales and Dolphins.",
+          "contextAfter": " Daniel A. Greenberg (2003). Whales."
+        }
+      ]
+    }
+  ],
+  "highlights": [
+    {
+      "id": "h1",
+      "page": 2,
+      "startOffset": 78,
+      "endOffset": 218,
+      "text": "14) This led to the killing of hundreds of thousands of whales up until 1966, when the International Whaling Commission banned the practice.",
+      "isExcluded": false,
+      "matchCardId": "mc1"
+    },
+    {
+      "id": "h2",
+      "page": 1,
+      "startOffset": 490,
+      "endOffset": 553,
+      "text": "But there are other reasons for why they are now so endangered.",
+      "isExcluded": false,
+      "matchCardId": "mc1"
+    },
+    {
+      "id": "h3",
+      "page": 1,
+      "startOffset": 554,
+      "endOffset": 700,
+      "text": "“The blue whale’s common name derives from bluish-hue that covers the upper side of it body, while its Latin designation is Balaenoptera musculus.",
+      "isExcluded": false,
+      "matchCardId": "mc1"
+    },
+    {
+      "id": "h4",
+      "page": 1,
+      "startOffset": 1082,
+      "endOffset": 1260,
+      "text": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+      "isExcluded": false,
+      "matchCardId": "mc1"
+    },
+    {
+      "id": "h5",
+      "page": 2,
+      "startOffset": 621,
+      "endOffset": 770,
+      "text": "The two parvorders of whales, baleen whales (Mysticeti) and toothed whales (Odontoceti), are thought to have split apart around 34 million years ago.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h6",
+      "page": 1,
+      "startOffset": 1021,
+      "endOffset": 1081,
+      "text": "An adult blue whale can eat up to 40 million krill in a day.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h7",
+      "page": 1,
+      "startOffset": 1082,
+      "endOffset": 1260,
+      "text": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h8",
+      "page": 1,
+      "startOffset": 719,
+      "endOffset": 925,
+      "text": "79) The blue whale belongs to the Mysteceti suborder of cetaceans, also known as baleen whales, which means they have fringed plates of fingernail-like material, called baleen, attached to their upper jaws.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h9",
+      "page": 1,
+      "startOffset": 926,
+      "endOffset": 1020,
+      "text": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h10",
+      "page": 2,
+      "startOffset": 415,
+      "endOffset": 521,
+      "text": "Whales, dolphins and porpoises belong to the order Cetartiodactyla, which consists of even-toed ungulates.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h11",
+      "page": 1,
+      "startOffset": 926,
+      "endOffset": 1020,
+      "text": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h12",
+      "page": 1,
+      "startOffset": 0,
+      "endOffset": 200,
+      "text": "The Goliath of the Sea Blue Whale - Balaenoptera musculus The majestic blue whale, the goliath of the sea, certainly stands alone within the animal kingdom for its adaptations beyond its massive size.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h13",
+      "page": 2,
+      "startOffset": 219,
+      "endOffset": 311,
+      "text": "Whales are a widely distributed and diverse group of fully aquatic placental marine mammals.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h14",
+      "page": 1,
+      "startOffset": 201,
+      "endOffset": 356,
+      "text": "At 30 metres (98 ft) in length and 190 tonnes (210 short tons) or more in weight, it is the largest existing animal and the heaviest that has ever existed.",
+      "isExcluded": false,
+      "matchCardId": "mc4"
+    },
+    {
+      "id": "h15",
+      "page": 1,
+      "startOffset": 1082,
+      "endOffset": 1260,
+      "text": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+      "isExcluded": false,
+      "matchCardId": "mc5"
+    },
+    {
+      "id": "h16",
+      "page": 2,
+      "startOffset": 1091,
+      "endOffset": 1345,
+      "text": "Very large, aquatic, marine mammals (order Cetacea) that have a torpedo-shaped body with a thick layer of blubber, paddle-shaped forelimbs but no hind limbs, a horizontally flattened tail, and nostrils that open externally at the top of the head (Whales.",
+      "isExcluded": false,
+      "matchCardId": "mc5"
+    },
+    {
+      "id": "h17",
+      "page": 1,
+      "startOffset": 490,
+      "endOffset": 553,
+      "text": "But there are other reasons for why they are now so endangered.",
+      "isExcluded": false,
+      "matchCardId": "mc5"
+    },
+    {
+      "id": "h18",
+      "page": 1,
+      "startOffset": 357,
+      "endOffset": 489,
+      "text": "Despite their incomparable mass, aggressive hunting in the 1900s by whalers seeking whale oil drove them to the brink of extinction.",
+      "isExcluded": false,
+      "matchCardId": "mc5"
+    },
+    {
+      "id": "h19",
+      "page": 1,
+      "startOffset": 926,
+      "endOffset": 1020,
+      "text": "Blue whales feed almost exclusively on krill, though they also take small numbers of copepods.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h20",
+      "page": 2,
+      "startOffset": 1091,
+      "endOffset": 1345,
+      "text": "Very large, aquatic, marine mammals (order Cetacea) that have a torpedo-shaped body with a thick layer of blubber, paddle-shaped forelimbs but no hind limbs, a horizontally flattened tail, and nostrils that open externally at the top of the head (Whales.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h21",
+      "page": 2,
+      "startOffset": 415,
+      "endOffset": 521,
+      "text": "Whales, dolphins and porpoises belong to the order Cetartiodactyla, which consists of even-toed ungulates.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h22",
+      "page": 1,
+      "startOffset": 1082,
+      "endOffset": 1260,
+      "text": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+      "isExcluded": false,
+      "matchCardId": "mc7"
+    },
+    {
+      "id": "h23",
+      "page": 1,
+      "startOffset": 490,
+      "endOffset": 553,
+      "text": "But there are other reasons for why they are now so endangered.",
+      "isExcluded": false,
+      "matchCardId": "mc7"
+    },
+    {
+      "id": "h24",
+      "page": 1,
+      "startOffset": 1082,
+      "endOffset": 1260,
+      "text": "These gargantuan beasts used to dominate all the oceans of the Earth up until the late nineteenth century, when the technology was developed to effectively hunt and harvest them.",
+      "isExcluded": false,
+      "matchCardId": "mc7"
+    },
+    {
+      "id": "h25",
+      "page": 2,
+      "startOffset": 1523,
+      "endOffset": 1565,
+      "text": "The Cultural Lives of Whales and Dolphins.",
+      "isExcluded": false,
+      "matchCardId": "mc8"
+    }
+  ]
+}

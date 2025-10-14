@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",         // 👈 necessary for TSX files
+    "esModuleInterop": true,    // 👈 removes that ts-jest warning
+    "resolveJsonModule": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "types": ["jest"],
+    "allowJs": true
+  },
+  "include": ["src/**/*"]
+}

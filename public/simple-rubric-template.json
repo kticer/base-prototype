@@ -1,0 +1,87 @@
+{
+  "id": "simple-template-rubric",
+  "title": "Simple 3x3 Template Rubric",
+  "type": "weighted",
+  "createdAt": "2024-01-15T12:00:00.000Z",
+  "lastModified": "2024-01-15T12:00:00.000Z",
+  "criteria": [
+    {
+      "id": "criterion-1",
+      "title": "Quality of Work",
+      "description": "Overall quality and completeness",
+      "weight": 33,
+      "descriptions": [
+        "Work is incomplete or poor quality",
+        "Work meets basic requirements", 
+        "Work exceeds expectations and shows excellence"
+      ],
+      "scales": {
+        "scale-1": "Needs Improvement",
+        "scale-2": "Satisfactory",
+        "scale-3": "Excellent"
+      }
+    },
+    {
+      "id": "criterion-2", 
+      "title": "Effort and Participation",
+      "description": "Level of engagement and effort shown",
+      "weight": 33,
+      "descriptions": [
+        "Little effort shown, minimal participation",
+        "Good effort and regular participation",
+        "Outstanding effort and active participation"
+      ],
+      "scales": {
+        "scale-1": "Needs Improvement",
+        "scale-2": "Satisfactory", 
+        "scale-3": "Excellent"
+      }
+    },
+    {
+      "id": "criterion-3",
+      "title": "Understanding",
+      "description": "Demonstrates understanding of concepts",
+      "weight": 34,
+      "descriptions": [
+        "Shows limited understanding of key concepts",
+        "Shows solid understanding of most concepts",
+        "Shows deep understanding and can apply concepts"
+      ],
+      "scales": {
+        "scale-1": "Needs Improvement",
+        "scale-2": "Satisfactory",
+        "scale-3": "Excellent"
+      }
+    }
+  ],
+  "scales": [
+    {
+      "id": "scale-1",
+      "title": "Needs Improvement",
+      "pointRange": "1-2 pts",
+      "description": "Below expectations",
+      "points": 2
+    },
+    {
+      "id": "scale-2",
+      "title": "Satisfactory", 
+      "pointRange": "3-4 pts",
+      "description": "Meets expectations",
+      "points": 4
+    },
+    {
+      "id": "scale-3",
+      "title": "Excellent",
+      "pointRange": "5-6 pts",
+      "description": "Exceeds expectations", 
+      "points": 6
+    }
+  ],
+  "metadata": {
+    "totalPoints": 18,
+    "enableRangedScoring": true,
+    "enableEqualWeights": true,
+    "rows": 3,
+    "columns": 3
+  }
+}

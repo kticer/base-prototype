@@ -1,0 +1,448 @@
+{
+  "id": "doc-the-2018-oscars-jam-1751317500692-1",
+  "title": "The 2018 Oscars Jam",
+  "author": "Debbie Gleason",
+  "pages": [
+    {
+      "number": 1,
+      "content": "The 90th Academy Awards, held on March 4, 2018, at the Dolby Theatre in Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements. One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director. The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike. In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award. Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption. Supporting acting honors went to Sam Rockwell for his nuanced role in \"Three Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.\" The fi lm's celebration of Mexican"
+    },
+    {
+      "number": 2,
+      "content": "culture and its universal themes resonated with audiences worldwide. The screenplay categories featured signi fi cant moments, with Jordan Peele making history as the fi rst African-American to win the Oscar for Best Original Screenplay for his thought-provoking and genre-defying fi lm, \"Get Out.\" James Ivory received the Best Adapted Screenplay award for his work on \"Call Me by Your Name,\" a poignant coming-of-age story set in 1980s Italy. \"Dunkirk,\" directed by Christopher Nolan, garnered recognition for its technical prowess, securing awards for Best Editing and Best Sound Mixing. The fi lm's immersive portrayal of the Dunkirk evacuation during World War II captivated audiences with its innovative storytelling and visual spectacle. Beyond the awards, the 2018 Oscars marked a watershed moment with Daniela Vega becoming the fi rst openly transgender person to present at the ceremony. Her presence on the stage symbolized a step forward for inclusivity and representation in the fi lm industry. In summary, the 90th Academy Awards celebrated a diverse array of fi lms, performances, and creative achievements, leaving a lasting impact on the cinematic landscape while also breaking new ground in terms of representation and recognition."
+    }
+  ],
+  "matchCards": [
+    {
+      "id": "mc1",
+      "sourceType": "Internet",
+      "sourceName": "Variety",
+      "sourceUrl": "https://www.variety.net/posts/1751315848035",
+      "matchCount": 1,
+      "similarityPercent": 7,
+      "matchedWordCount": 27,
+      "matches": [
+        {
+          "highlightId": "h1",
+          "contextBefore": "the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption. ",
+          "matchedText": "Supporting acting honors went to Sam Rockwell for his nuanced role in \"Three Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+          "contextAfter": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning B"
+        }
+      ]
+    },
+    {
+      "id": "mc2",
+      "sourceType": "Publication",
+      "sourceName": "IndieWire",
+      "sourceUrl": "https://www.indiewire.net/posts/1751315848035",
+      "matchCount": 4,
+      "similarityPercent": 28,
+      "matchedWordCount": 106,
+      "matches": [
+        {
+          "highlightId": "h2",
+          "contextBefore": "e Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+          "matchedText": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+          "contextAfter": "\" The fi lm's celebration of Mexican"
+        },
+        {
+          "highlightId": "h3",
+          "contextBefore": "ion during World War II captivated audiences with its innovative storytelling and visual spectacle. ",
+          "matchedText": "Beyond the awards, the 2018 Oscars marked a watershed moment with Daniela Vega becoming the fi rst openly transgender person to present at the ceremony.",
+          "contextAfter": " Her presence on the stage symbolized a step forward for inclusivity and representation in the fi lm"
+        },
+        {
+          "highlightId": "h4",
+          "contextBefore": "e Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+          "matchedText": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+          "contextAfter": "\" The fi lm's celebration of Mexican"
+        },
+        {
+          "highlightId": "h5",
+          "contextBefore": "e Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+          "matchedText": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+          "contextAfter": "\" The fi lm's celebration of Mexican"
+        }
+      ]
+    },
+    {
+      "id": "mc3",
+      "sourceType": "Submitted Works",
+      "sourceName": "Submitted to Another Institution - 2023 October 25",
+      "sourceUrl": "https://www.imdb.net/posts/1751315848035",
+      "matchCount": 1,
+      "similarityPercent": 4,
+      "matchedWordCount": 17,
+      "matches": [
+        {
+          "highlightId": "h6",
+          "contextBefore": "secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director. ",
+          "matchedText": "The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike.",
+          "contextAfter": " In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest H"
+        }
+      ]
+    },
+    {
+      "id": "mc4",
+      "sourceType": "Internet",
+      "sourceName": "Collider",
+      "sourceUrl": "https://www.collider.net/posts/1751315848035",
+      "matchCount": 2,
+      "similarityPercent": 8,
+      "matchedWordCount": 29,
+      "matches": [
+        {
+          "highlightId": "h7",
+          "contextBefore": "unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike. ",
+          "matchedText": "In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award.",
+          "contextAfter": " Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her"
+        },
+        {
+          "highlightId": "h8",
+          "contextBefore": "",
+          "matchedText": "culture and its universal themes resonated with audiences worldwide.",
+          "contextAfter": " The screenplay categories featured signi fi cant moments, with Jordan Peele making history as the f"
+        }
+      ]
+    },
+    {
+      "id": "mc5",
+      "sourceType": "Internet",
+      "sourceName": "FilmTheoryFan.blog",
+      "sourceUrl": "https://www.filmtheoryfan.net/posts/1751315848035",
+      "matchCount": 1,
+      "similarityPercent": 10,
+      "matchedWordCount": 37,
+      "matches": [
+        {
+          "highlightId": "h9",
+          "contextBefore": "n Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements. ",
+          "matchedText": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+          "contextAfter": " The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and cr"
+        }
+      ]
+    },
+    {
+      "id": "mc6",
+      "sourceType": "Publication",
+      "sourceName": "The Hollywood Reporter",
+      "sourceUrl": "https://the.org/the/insight/102",
+      "matchCount": 4,
+      "similarityPercent": 29,
+      "matchedWordCount": 112,
+      "matches": [
+        {
+          "highlightId": "h10",
+          "contextBefore": "culture and its universal themes resonated with audiences worldwide. ",
+          "matchedText": "The screenplay categories featured signi fi cant moments, with Jordan Peele making history as the fi rst African-American to win the Oscar for Best Original Screenplay for his thought-provoking and genre-defying fi lm, \"Get Out.",
+          "contextAfter": "\" James Ivory received the Best Adapted Screenplay award for his work on \"Call Me by Your Name,\" a p"
+        },
+        {
+          "highlightId": "h11",
+          "contextBefore": "ce on the stage symbolized a step forward for inclusivity and representation in the fi lm industry. ",
+          "matchedText": "In summary, the 90th Academy Awards celebrated a diverse array of fi lms, performances, and creative achievements, leaving a lasting impact on the cinematic landscape while also breaking new ground in terms of representation and recognition.",
+          "contextAfter": ""
+        },
+        {
+          "highlightId": "h12",
+          "contextBefore": "",
+          "matchedText": "culture and its universal themes resonated with audiences worldwide.",
+          "contextAfter": " The screenplay categories featured signi fi cant moments, with Jordan Peele making history as the f"
+        },
+        {
+          "highlightId": "h13",
+          "contextBefore": "",
+          "matchedText": "The 2018 Oscars Jam Namey Namerson The 90th Academy Awards, held on March 4, 2018, at the Dolby Theatre in Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements.",
+          "contextAfter": " One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del"
+        }
+      ]
+    },
+    {
+      "id": "mc7",
+      "sourceType": "Internet",
+      "sourceName": "Rotten Tomatoes",
+      "sourceUrl": "https://rotten.org/rotten/insight/538",
+      "matchCount": 1,
+      "similarityPercent": 10,
+      "matchedWordCount": 37,
+      "matches": [
+        {
+          "highlightId": "h14",
+          "contextBefore": "n Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements. ",
+          "matchedText": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+          "contextAfter": " The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and cr"
+        }
+      ]
+    },
+    {
+      "id": "mc8",
+      "sourceType": "Internet",
+      "sourceName": "Metacritic",
+      "sourceUrl": "https://metacritic.org/metacritic/insight/160",
+      "matchCount": 3,
+      "similarityPercent": 18,
+      "matchedWordCount": 69,
+      "matches": [
+        {
+          "highlightId": "h15",
+          "contextBefore": "",
+          "matchedText": "The 2018 Oscars Jam Namey Namerson The 90th Academy Awards, held on March 4, 2018, at the Dolby Theatre in Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements.",
+          "contextAfter": " One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del"
+        },
+        {
+          "highlightId": "h16",
+          "contextBefore": "unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike. ",
+          "matchedText": "In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award.",
+          "contextAfter": " Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her"
+        },
+        {
+          "highlightId": "h17",
+          "contextBefore": "secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director. ",
+          "matchedText": "The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike.",
+          "contextAfter": " In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest H"
+        }
+      ]
+    },
+    {
+      "id": "mc9",
+      "sourceType": "Internet",
+      "sourceName": "Screen Rant",
+      "sourceUrl": "https://screen.com/article/3903",
+      "matchCount": 5,
+      "similarityPercent": 40,
+      "matchedWordCount": 152,
+      "matches": [
+        {
+          "highlightId": "h18",
+          "contextBefore": "'s transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award. ",
+          "matchedText": "Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption.",
+          "contextAfter": " Supporting acting honors went to Sam Rockwell for his nuanced role in \"Three Billboards Outside Ebb"
+        },
+        {
+          "highlightId": "h19",
+          "contextBefore": "ce on the stage symbolized a step forward for inclusivity and representation in the fi lm industry. ",
+          "matchedText": "In summary, the 90th Academy Awards celebrated a diverse array of fi lms, performances, and creative achievements, leaving a lasting impact on the cinematic landscape while also breaking new ground in terms of representation and recognition.",
+          "contextAfter": ""
+        },
+        {
+          "highlightId": "h20",
+          "contextBefore": "e Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+          "matchedText": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+          "contextAfter": "\" The fi lm's celebration of Mexican"
+        },
+        {
+          "highlightId": "h21",
+          "contextBefore": "'s transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award. ",
+          "matchedText": "Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption.",
+          "contextAfter": " Supporting acting honors went to Sam Rockwell for his nuanced role in \"Three Billboards Outside Ebb"
+        },
+        {
+          "highlightId": "h22",
+          "contextBefore": "n Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements. ",
+          "matchedText": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+          "contextAfter": " The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and cr"
+        }
+      ]
+    }
+  ],
+  "highlights": [
+    {
+      "id": "h1",
+      "page": 1,
+      "startOffset": 872,
+      "endOffset": 1047,
+      "text": "Supporting acting honors went to Sam Rockwell for his nuanced role in \"Three Billboards Outside Ebbing, Missouri\" and Allison Janney for her standout performance in \"I, Tonya.",
+      "isExcluded": false,
+      "matchCardId": "mc1"
+    },
+    {
+      "id": "h2",
+      "page": 1,
+      "startOffset": 1047,
+      "endOffset": 1213,
+      "text": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h3",
+      "page": 2,
+      "startOffset": 745,
+      "endOffset": 897,
+      "text": "Beyond the awards, the 2018 Oscars marked a watershed moment with Daniela Vega becoming the fi rst openly transgender person to present at the ceremony.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h4",
+      "page": 1,
+      "startOffset": 1047,
+      "endOffset": 1213,
+      "text": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h5",
+      "page": 1,
+      "startOffset": 1047,
+      "endOffset": 1213,
+      "text": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+      "isExcluded": false,
+      "matchCardId": "mc2"
+    },
+    {
+      "id": "h6",
+      "page": 1,
+      "startOffset": 425,
+      "endOffset": 536,
+      "text": "The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike.",
+      "isExcluded": false,
+      "matchCardId": "mc3"
+    },
+    {
+      "id": "h7",
+      "page": 1,
+      "startOffset": 537,
+      "endOffset": 673,
+      "text": "In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award.",
+      "isExcluded": false,
+      "matchCardId": "mc4"
+    },
+    {
+      "id": "h8",
+      "page": 2,
+      "startOffset": 0,
+      "endOffset": 68,
+      "text": "culture and its universal themes resonated with audiences worldwide.",
+      "isExcluded": false,
+      "matchCardId": "mc4"
+    },
+    {
+      "id": "h9",
+      "page": 1,
+      "startOffset": 205,
+      "endOffset": 424,
+      "text": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+      "isExcluded": false,
+      "matchCardId": "mc5"
+    },
+    {
+      "id": "h10",
+      "page": 2,
+      "startOffset": 69,
+      "endOffset": 297,
+      "text": "The screenplay categories featured signi fi cant moments, with Jordan Peele making history as the fi rst African-American to win the Oscar for Best Original Screenplay for his thought-provoking and genre-defying fi lm, \"Get Out.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h11",
+      "page": 2,
+      "startOffset": 1008,
+      "endOffset": 1249,
+      "text": "In summary, the 90th Academy Awards celebrated a diverse array of fi lms, performances, and creative achievements, leaving a lasting impact on the cinematic landscape while also breaking new ground in terms of representation and recognition.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h12",
+      "page": 2,
+      "startOffset": 0,
+      "endOffset": 68,
+      "text": "culture and its universal themes resonated with audiences worldwide.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h13",
+      "page": 1,
+      "startOffset": 0,
+      "endOffset": 204,
+      "text": "The 2018 Oscars Jam Namey Namerson The 90th Academy Awards, held on March 4, 2018, at the Dolby Theatre in Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements.",
+      "isExcluded": false,
+      "matchCardId": "mc6"
+    },
+    {
+      "id": "h14",
+      "page": 1,
+      "startOffset": 205,
+      "endOffset": 424,
+      "text": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+      "isExcluded": false,
+      "matchCardId": "mc7"
+    },
+    {
+      "id": "h15",
+      "page": 1,
+      "startOffset": 0,
+      "endOffset": 204,
+      "text": "The 2018 Oscars Jam Namey Namerson The 90th Academy Awards, held on March 4, 2018, at the Dolby Theatre in Hollywood, showcased a mix of cinematic excellence, historical moments, and diverse achievements.",
+      "isExcluded": false,
+      "matchCardId": "mc8"
+    },
+    {
+      "id": "h16",
+      "page": 1,
+      "startOffset": 537,
+      "endOffset": 673,
+      "text": "In the acting categories, Gary Oldman's transformative portrayal of Winston Churchill in \"Darkest Hour\" earned him the Best Actor award.",
+      "isExcluded": false,
+      "matchCardId": "mc8"
+    },
+    {
+      "id": "h17",
+      "page": 1,
+      "startOffset": 425,
+      "endOffset": 536,
+      "text": "The fi lm's unique blend of fantasy, romance, and social commentary resonated with audiences and critics alike.",
+      "isExcluded": false,
+      "matchCardId": "mc8"
+    },
+    {
+      "id": "h18",
+      "page": 1,
+      "startOffset": 674,
+      "endOffset": 871,
+      "text": "Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption.",
+      "isExcluded": false,
+      "matchCardId": "mc9"
+    },
+    {
+      "id": "h19",
+      "page": 2,
+      "startOffset": 1008,
+      "endOffset": 1249,
+      "text": "In summary, the 90th Academy Awards celebrated a diverse array of fi lms, performances, and creative achievements, leaving a lasting impact on the cinematic landscape while also breaking new ground in terms of representation and recognition.",
+      "isExcluded": false,
+      "matchCardId": "mc9"
+    },
+    {
+      "id": "h20",
+      "page": 1,
+      "startOffset": 1047,
+      "endOffset": 1213,
+      "text": "\" In the animated realm, the heartwarming and culturally rich \"Coco\" took home two awards, winning Best Animated Feature Film and Best Original Song for \"Remember Me.",
+      "isExcluded": false,
+      "matchCardId": "mc9"
+    },
+    {
+      "id": "h21",
+      "page": 1,
+      "startOffset": 674,
+      "endOffset": 871,
+      "text": "Frances McDormand's powerful performance in \"Three Billboards Outside Ebbing, Missouri\" earned her the Best Actress accolade, showcasing the fi lm's impactful exploration of justice and redemption.",
+      "isExcluded": false,
+      "matchCardId": "mc9"
+    },
+    {
+      "id": "h22",
+      "page": 1,
+      "startOffset": 205,
+      "endOffset": 424,
+      "text": "One of the evening's highlights was the triumph of \"The Shape of Water,\" directed by Guillermo del Toro, which not only secured the prestigious Best Picture award but also earned del Toro the accolade for Best Director.",
+      "isExcluded": false,
+      "matchCardId": "mc9"
+    }
+  ]
+}

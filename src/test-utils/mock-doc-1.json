@@ -1,0 +1,95 @@
+{
+  "id": "mock-doc-1",
+  "title": "Test Document",
+  "author": "Test Author",
+  "pages": [
+    {
+      "number": 1,
+      "content": "This is the introduction paragraph.\n\nSecond paragraph with some duplicated content for testing. Another matching sentence.\n\nConclusion paragraph to test document end behavior."
+    }
+  ],
+  "matchCards": [
+    {
+      "id": "mc2",
+      "sourceType": "Internet",
+      "sourceName": "Example.com",
+      "sourceUrl": "https://example.com/article",
+      "similarityPercent": 25,
+      "matchedWordCount": 14,
+      "matches": [
+        {
+          "highlightId": "h6",
+          "contextBefore": "Second paragraph with ",
+          "matchedText": "some duplicated content",
+          "contextAfter": " for testing."
+        },
+        {
+          "highlightId": "h7",
+          "contextBefore": "for testing. ",
+          "matchedText": "Another matching sentence",
+          "contextAfter": "."
+        }
+      ]
+    },
+    {
+      "id": "mc3",
+      "sourceType": "Publication",
+      "sourceName": "Journal of Testing",
+      "sourceUrl": "https://journaloftesting.org/article",
+      "similarityPercent": 40,
+      "matchedWordCount": 18,
+      "matches": [
+        {
+          "highlightId": "h14",
+          "contextBefore": "",
+          "matchedText": "Another matching sentence",
+          "contextAfter": "."
+        },
+        {
+          "highlightId": "h12",
+          "contextBefore": "",
+          "matchedText": "content for testing",
+          "contextAfter": ""
+        }
+      ]
+    }
+  ],
+  "highlights": [
+    {
+      "id": "h6",
+      "page": 1,
+      "startOffset": 38,
+      "endOffset": 60,
+      "text": "some duplicated",
+      "matchCardId": "mc2",
+      "isExcluded": false
+    },
+    {
+      "id": "h12",
+      "page": 1,
+      "startOffset": 61,
+      "endOffset": 81,
+      "text": "content for testing",
+      "matchCardId": "mc3",
+      "isExcluded": false
+    },
+    {
+      "id": "h7",
+      "page": 1,
+      "startOffset": 95,
+      "endOffset": 123,
+      "text": "matching sentence",
+      "matchCardId": "mc2",
+      "isExcluded": false
+    },
+    {
+      "id": "h14",
+      "page": 1,
+      "startOffset": 82,
+      "endOffset": 110,
+      "text": "Another matching sentence",
+      "matchCardId": "mc3",
+      "isExcluded": false
+    }
+  ]
+}

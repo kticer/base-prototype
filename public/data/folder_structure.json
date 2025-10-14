@@ -1,0 +1,90 @@
+[
+  {
+    "id": "f1",
+    "type": "folder",
+    "title": "Applications",
+    "dateAdded": "2025-06-01",
+    "children": [
+      {
+        "id": "f1-1",
+        "type": "folder",
+        "title": "Round 1",
+        "dateAdded": "2025-06-02",
+        "children": [
+          {
+            "id": "doc-the-2018-golden-globes-jam-1751316856155-1",
+            "type": "document",
+            "title": "The 2018 Golden Globes Jam",
+            "author": "Essay Essayburg",
+            "similarity": 37,
+            "dateAdded": "2025-06-03"
+          },
+          {
+            "id": "doc-political-economic-and-ideological-factors-in-the-cold-war-1945-1991-1751316807511-1",
+            "type": "document",
+            "title": "Political, Economic, and Ideological Factors in the Cold War (1945–1991)",
+            "author": "Nina Forhire",
+            "similarity": 22,
+            "dateAdded": "2025-06-03"
+          }
+        ]
+      },
+      {
+        "id": "f1-2",
+        "type": "folder",
+        "title": "Round 2",
+        "dateAdded": "2025-06-04",
+        "children": [
+          {
+            "id": "doc-the-four-phases-of-business-growth-1751316934128-1",
+            "type": "document",
+            "title": "The Four Phases of Business Growth",
+            "author": "Grant Movitz",
+            "similarity": 45,
+            "dateAdded": "2025-06-05"
+          },
+          {
+            "id": "doc-the-goliath-of-the-sea-1751316906004-1",
+            "type": "document",
+            "title": "The Goliath of the Sea",
+            "author": "Marisa Drafton",
+            "similarity": 18,
+            "dateAdded": "2025-06-06"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "f2",
+    "type": "folder",
+    "title": "Scholarship Essays",
+    "dateAdded": "2025-06-02",
+    "children": [
+      {
+        "id": "doc-illustrious-baseball-1751315912690-1",
+        "type": "document",
+        "title": "Illustrious Baseball",
+        "author": "Rhonda Beier",
+        "similarity": 27,
+        "dateAdded": "2025-06-03"
+      },
+      {
+        "id": "doc-the-2018-oscars-jam-1751317500692-1",
+        "type": "document",
+        "title": "The 2018 Oscars Jam",
+        "author": "Debbie Gleason",
+        "similarity": 34,
+        "dateAdded": "2025-06-04"
+      }
+    ]
+  },
+  {
+    "id": "doc-why-are-there-so-many-oreo-flavors-1751316967167-1",
+    "type": "document",
+    "title": "Why are there so many Oreo Flavors?",
+    "author": "Jack Beatty",
+    "similarity": 12,
+    "dateAdded": "2025-06-05"
+  }
+]

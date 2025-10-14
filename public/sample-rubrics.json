@@ -1,0 +1,327 @@
+{
+  "rubrics": [
+    {
+      "id": "essay-writing-rubric-2024",
+      "title": "Academic Essay Writing Rubric",
+      "type": "weighted",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "lastModified": "2024-01-15T10:30:00.000Z",
+      "criteria": [
+        {
+          "id": "criterion-thesis",
+          "title": "Thesis & Argument",
+          "description": "Clarity and strength of central argument",
+          "weight": 25,
+          "descriptions": [
+            "Thesis is unclear or missing. No clear argument presented.",
+            "Thesis is present but weak or unclear. Argument needs development.",
+            "Clear thesis with adequate argument. Some supporting evidence.",
+            "Strong, clear thesis with well-developed argument and solid evidence."
+          ],
+          "scales": {
+            "scale-1": "Needs Improvement",
+            "scale-2": "Developing", 
+            "scale-3": "Proficient",
+            "scale-4": "Exemplary"
+          }
+        },
+        {
+          "id": "criterion-organization",
+          "title": "Organization & Structure",
+          "description": "Logical flow and structure of ideas",
+          "weight": 25,
+          "descriptions": [
+            "No clear organization. Ideas are scattered and hard to follow.",
+            "Some organization present but transitions are weak or unclear.",
+            "Generally well-organized with clear introduction, body, and conclusion.",
+            "Excellent organization with smooth transitions and logical flow throughout."
+          ],
+          "scales": {
+            "scale-1": "Needs Improvement",
+            "scale-2": "Developing",
+            "scale-3": "Proficient", 
+            "scale-4": "Exemplary"
+          }
+        },
+        {
+          "id": "criterion-evidence",
+          "title": "Use of Evidence",
+          "description": "Quality and integration of supporting evidence",
+          "weight": 25,
+          "descriptions": [
+            "Little to no evidence provided. Sources not credible or relevant.",
+            "Some evidence provided but integration is weak or sources questionable.",
+            "Good use of relevant evidence from credible sources with proper integration.",
+            "Excellent use of compelling evidence from high-quality sources, expertly integrated."
+          ],
+          "scales": {
+            "scale-1": "Needs Improvement",
+            "scale-2": "Developing",
+            "scale-3": "Proficient",
+            "scale-4": "Exemplary"
+          }
+        },
+        {
+          "id": "criterion-language",
+          "title": "Language & Style",
+          "description": "Grammar, syntax, and writing style",
+          "weight": 25,
+          "descriptions": [
+            "Frequent grammar and syntax errors interfere with meaning. Inappropriate style.",
+            "Some grammar/syntax errors present. Style needs improvement for audience.",
+            "Generally correct grammar and syntax. Appropriate style for academic writing.",
+            "Excellent grammar, syntax, and style. Writing is clear, engaging, and polished."
+          ],
+          "scales": {
+            "scale-1": "Needs Improvement",
+            "scale-2": "Developing",
+            "scale-3": "Proficient",
+            "scale-4": "Exemplary"
+          }
+        }
+      ],
+      "scales": [
+        {
+          "id": "scale-1",
+          "title": "Needs Improvement",
+          "pointRange": "0-1 pts",
+          "description": "Does not meet expectations",
+          "points": 1
+        },
+        {
+          "id": "scale-2", 
+          "title": "Developing",
+          "pointRange": "2-3 pts",
+          "description": "Approaching expectations",
+          "points": 3
+        },
+        {
+          "id": "scale-3",
+          "title": "Proficient",
+          "pointRange": "4-5 pts", 
+          "description": "Meets expectations",
+          "points": 5
+        },
+        {
+          "id": "scale-4",
+          "title": "Exemplary",
+          "pointRange": "6-7 pts",
+          "description": "Exceeds expectations",
+          "points": 7
+        }
+      ],
+      "metadata": {
+        "totalPoints": 28,
+        "enableRangedScoring": true,
+        "enableEqualWeights": true,
+        "rows": 4,
+        "columns": 4
+      }
+    },
+    {
+      "id": "presentation-rubric-2024",
+      "title": "Oral Presentation Rubric",
+      "type": "weighted",
+      "createdAt": "2024-01-15T11:00:00.000Z",
+      "lastModified": "2024-01-15T11:00:00.000Z",
+      "criteria": [
+        {
+          "id": "criterion-content",
+          "title": "Content Knowledge",
+          "description": "Demonstrates understanding of topic",
+          "weight": 30,
+          "descriptions": [
+            "Limited knowledge of topic. Content is inaccurate or incomplete.",
+            "Basic understanding shown. Some gaps in knowledge or minor inaccuracies.",
+            "Good understanding demonstrated. Content is accurate and complete.",
+            "Excellent mastery of topic. Content is thorough, accurate, and insightful."
+          ],
+          "scales": {
+            "scale-1": "Poor",
+            "scale-2": "Fair",
+            "scale-3": "Good", 
+            "scale-4": "Excellent"
+          }
+        },
+        {
+          "id": "criterion-delivery",
+          "title": "Delivery & Speaking",
+          "description": "Voice, pace, and presentation skills",
+          "weight": 25,
+          "descriptions": [
+            "Difficult to hear or understand. Monotone delivery.",
+            "Generally audible but may be unclear at times. Limited variation in delivery.",
+            "Clear and audible throughout. Good pace and some vocal variety.",
+            "Excellent vocal delivery with appropriate pace, volume, and engaging variety."
+          ],
+          "scales": {
+            "scale-1": "Poor",
+            "scale-2": "Fair", 
+            "scale-3": "Good",
+            "scale-4": "Excellent"
+          }
+        },
+        {
+          "id": "criterion-visuals",
+          "title": "Visual Aids",
+          "description": "Effectiveness of slides, props, or other visual elements",
+          "weight": 20,
+          "descriptions": [
+            "No visual aids or visuals detract from presentation.",
+            "Basic visual aids that somewhat support the presentation.",
+            "Good visual aids that enhance understanding and engagement.",
+            "Excellent visual aids that significantly enhance and clarify the presentation."
+          ],
+          "scales": {
+            "scale-1": "Poor",
+            "scale-2": "Fair",
+            "scale-3": "Good",
+            "scale-4": "Excellent"
+          }
+        },
+        {
+          "id": "criterion-engagement",
+          "title": "Audience Engagement",
+          "description": "Interaction with and connection to audience",
+          "weight": 25,
+          "descriptions": [
+            "Little to no eye contact or audience awareness. Reads from notes.",
+            "Occasional eye contact. Some awareness of audience but limited engagement.",
+            "Good eye contact and audience awareness. Engages audience effectively.",
+            "Excellent audience connection with confident eye contact and dynamic engagement."
+          ],
+          "scales": {
+            "scale-1": "Poor",
+            "scale-2": "Fair",
+            "scale-3": "Good",
+            "scale-4": "Excellent"
+          }
+        }
+      ],
+      "scales": [
+        {
+          "id": "scale-1",
+          "title": "Poor",
+          "pointRange": "1-2 pts",
+          "description": "Below expectations",
+          "points": 2
+        },
+        {
+          "id": "scale-2",
+          "title": "Fair", 
+          "pointRange": "3-4 pts",
+          "description": "Approaching expectations",
+          "points": 4
+        },
+        {
+          "id": "scale-3",
+          "title": "Good",
+          "pointRange": "5-6 pts",
+          "description": "Meets expectations", 
+          "points": 6
+        },
+        {
+          "id": "scale-4",
+          "title": "Excellent",
+          "pointRange": "7-8 pts",
+          "description": "Exceeds expectations",
+          "points": 8
+        }
+      ],
+      "metadata": {
+        "totalPoints": 32,
+        "enableRangedScoring": true,
+        "enableEqualWeights": false,
+        "rows": 4,
+        "columns": 4
+      }
+    },
+    {
+      "id": "group-project-rubric-2024",
+      "title": "Collaborative Group Project Rubric",
+      "type": "qualitative",
+      "createdAt": "2024-01-15T14:30:00.000Z",
+      "lastModified": "2024-01-15T14:30:00.000Z",
+      "criteria": [
+        {
+          "id": "criterion-collaboration",
+          "title": "Collaboration",
+          "description": "Working effectively with team members",
+          "weight": 33,
+          "descriptions": [
+            "Rarely participates or contributes to group work.",
+            "Participates but may not always contribute meaningfully.",
+            "Actively participates and contributes valuable ideas and effort."
+          ],
+          "scales": {
+            "scale-1": "Needs Work",
+            "scale-2": "Satisfactory",
+            "scale-3": "Excellent"
+          }
+        },
+        {
+          "id": "criterion-responsibility",
+          "title": "Individual Responsibility",
+          "description": "Meeting deadlines and completing assigned tasks",
+          "weight": 33,
+          "descriptions": [
+            "Frequently misses deadlines or fails to complete assigned tasks.",
+            "Usually meets deadlines and completes most assigned tasks.",
+            "Consistently meets all deadlines and completes all tasks thoroughly."
+          ],
+          "scales": {
+            "scale-1": "Needs Work",
+            "scale-2": "Satisfactory", 
+            "scale-3": "Excellent"
+          }
+        },
+        {
+          "id": "criterion-communication",
+          "title": "Communication",
+          "description": "Sharing ideas and information effectively within the group",
+          "weight": 34,
+          "descriptions": [
+            "Poor communication with group members. Ideas unclear or not shared.",
+            "Adequate communication. Usually shares ideas and listens to others.",
+            "Excellent communication. Clearly shares ideas and actively listens."
+          ],
+          "scales": {
+            "scale-1": "Needs Work",
+            "scale-2": "Satisfactory",
+            "scale-3": "Excellent"
+          }
+        }
+      ],
+      "scales": [
+        {
+          "id": "scale-1",
+          "title": "Needs Work",
+          "pointRange": "N/A",
+          "description": "Requires improvement",
+          "points": 0
+        },
+        {
+          "id": "scale-2",
+          "title": "Satisfactory",
+          "pointRange": "N/A", 
+          "description": "Meets basic expectations",
+          "points": 0
+        },
+        {
+          "id": "scale-3",
+          "title": "Excellent",
+          "pointRange": "N/A",
+          "description": "Exceeds expectations",
+          "points": 0
+        }
+      ],
+      "metadata": {
+        "totalPoints": 0,
+        "enableRangedScoring": false,
+        "enableEqualWeights": true,
+        "rows": 3,
+        "columns": 3
+      }
+    }
+  ]
+}
