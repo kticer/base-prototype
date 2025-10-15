@@ -1,0 +1,208 @@
+{
+  "id": "doc-story1-test",
+  "title": "The Impact of Climate Change on Global Agriculture",
+  "author": "Sarah Johnson",
+  "similarity": 35,
+  "pages": [
+    {
+      "number": 1,
+      "content": "Climate change represents one of the most pressing challenges facing global agriculture in the 21st century. Rising temperatures, shifting precipitation patterns, and increased frequency of extreme weather events are fundamentally altering the conditions under which crops are grown and livestock are raised worldwide.\n\nClimate change is already affecting agriculture, forestry, and fisheries around the world. Changes in temperature and precipitation, along with increased carbon dioxide concentrations, are impacting crop yields and the distribution of agricultural pests. Rising sea levels threaten coastal agricultural lands with inundation and saltwater intrusion, while changes in water availability affect irrigation practices and water management strategies. The increasing frequency and intensity of extreme events such as droughts, floods, and heat waves pose significant risks to food production systems. These changes are particularly concerning for developing nations, where agriculture forms the backbone of many economies and provides livelihoods for the majority of the population.\n\nThe relationship between climate and agriculture is complex and multifaceted. Temperature increases can extend growing seasons in some regions while shortening them in others. \"Warmer temperatures may enable farmers to grow crops in areas previously unsuitable for agriculture\" (Smith et al., 2019). However, excessive heat can reduce crop yields, particularly during critical growth stages such as flowering and grain filling. Water availability is another crucial factor, as many agricultural regions depend on consistent rainfall patterns or snowmelt for irrigation."
+    },
+    {
+      "number": 2,
+      "content": "Different crops respond to climate change in varying ways. Wheat, rice, and maize - the three crops that provide more than half of the world's food calories - show distinct sensitivities to temperature and water stress. Research has demonstrated that for each degree Celsius increase in global mean temperature, average yields of these crops decline by approximately 3-10 percent. Coffee and cocoa production, crucial for many tropical economies, face particular threats from changing temperature and rainfall patterns.\n\nAdaptation strategies are essential for maintaining agricultural productivity under changing climate conditions. Farmers and agricultural scientists are developing and implementing various approaches to build resilience. These include developing drought-resistant crop varieties, improving irrigation efficiency, adjusting planting dates, diversifying crop rotations, and implementing soil conservation practices. Precision agriculture technologies, including GPS-guided equipment and remote sensing, enable more efficient use of water, fertilizers, and pesticides.\n\nThe Green Revolution of the mid-20th century dramatically increased agricultural productivity through the development of high-yielding crop varieties, expanded irrigation infrastructure, and increased use of fertilizers and pesticides. These innovations helped feed billions of people and averted widespread famine in many developing countries. However, the agricultural practices promoted during this era also had significant environmental costs, including soil degradation, water pollution, and increased greenhouse gas emissions."
+    },
+    {
+      "number": 3,
+      "content": "Sustainable agricultural practices offer pathways to reduce agriculture's environmental footprint while maintaining productivity. Integrated pest management reduces reliance on chemical pesticides by combining biological controls, cultural practices, and targeted chemical applications. Conservation tillage and cover cropping help maintain soil health and sequester carbon. Agroforestry systems, which integrate trees with crops or livestock, provide multiple benefits including improved soil fertility, biodiversity conservation, and additional income sources.\n\nLivestock production contributes significantly to greenhouse gas emissions, particularly methane from ruminant digestion and nitrous oxide from manure management. Strategies to reduce emissions include improving feed efficiency, managing manure more effectively, and developing alternative protein sources. Some researchers are exploring the potential of seaweed additives to reduce methane emissions from cattle, while others investigate cellular agriculture as a means of producing meat without traditional animal farming.\n\nPolicy interventions play a crucial role in facilitating agricultural adaptation and mitigation. Government subsidies and incentives can encourage farmers to adopt climate-smart practices. International agreements and funding mechanisms support developing countries in building agricultural resilience. Research and development investments are essential for developing new technologies and practices suited to future climate conditions. Extension services help disseminate knowledge and best practices to farming communities."
+    },
+    {
+      "number": 4,
+      "content": "The interconnections between agriculture, climate change, and food security extend beyond production systems to encompass the entire food chain. Post-harvest losses due to inadequate storage and transportation infrastructure represent significant waste, particularly in developing countries. Reducing food waste throughout the supply chain could substantially decrease the environmental pressure to expand agricultural production.\n\nUrban agriculture and local food systems are gaining attention as complementary approaches to industrial agriculture. Community gardens, rooftop farms, and vertical farming operations in urban areas can improve food security, reduce transportation emissions, and strengthen community connections. While unlikely to replace conventional agriculture for staple crops, these systems offer valuable contributions to dietary diversity and local resilience.\n\nLooking forward, addressing climate change's impacts on agriculture requires coordinated action across multiple scales - from individual farmers implementing adaptive practices to international cooperation on research, trade, and climate policy. The challenge is not only technical but also social, economic, and political. Success will depend on mobilizing resources, sharing knowledge, and ensuring that solutions are accessible to farmers worldwide, particularly smallholders in vulnerable regions who face the greatest risks but have contributed least to causing climate change.\n\nWorks Cited\n\nSmith, J., et al. \"Agricultural Adaptation to Climate Change.\" Journal of Agricultural Science, vol. 45, no. 2, 2019, pp. 123-145."
+    }
+  ],
+  "matchCards": [
+    {
+      "id": "mc1",
+      "sourceType": "Internet",
+      "sourceName": "Climate.gov – NOAA Article (2020)",
+      "sourceUrl": "https://www.climate.gov/news-features/understanding-climate/climate-change-and-agriculture",
+      "matchCount": 1,
+      "similarityPercent": 22,
+      "matchedWordCount": 178,
+      "isCited": false,
+      "citationStatus": "not_cited",
+      "academicIntegrityIssue": true,
+      "issueDescription": "Large block of uncited text from authoritative source",
+      "matches": [
+        {
+          "highlightId": "h1",
+          "contextBefore": "Climate change represents one of the most pressing challenges facing global agriculture in the 21st century. Rising temperatures, shifting precipitation patterns, and increased frequency of extreme weather events are fundamentally altering the conditions under which crops are grown and livestock are raised worldwide.\n\n",
+          "matchedText": "Climate change is already affecting agriculture, forestry, and fisheries around the world. Changes in temperature and precipitation, along with increased carbon dioxide concentrations, are impacting crop yields and the distribution of agricultural pests. Rising sea levels threaten coastal agricultural lands with inundation and saltwater intrusion, while changes in water availability affect irrigation practices and water management strategies. The increasing frequency and intensity of extreme events such as droughts, floods, and heat waves pose significant risks to food production systems. These changes are particularly concerning for developing nations, where agriculture forms the backbone of many economies and provides livelihoods for the majority of the population.",
+          "contextAfter": "\n\nThe relationship between climate and agriculture is complex and multifaceted."
+        }
+      ]
+    },
+    {
+      "id": "mc2",
+      "sourceType": "Publication",
+      "sourceName": "Journal of Agricultural Science – Smith et al. (2019)",
+      "sourceUrl": "https://doi.org/10.1234/jas.2019.123",
+      "matchCount": 1,
+      "similarityPercent": 3,
+      "matchedWordCount": 15,
+      "isCited": true,
+      "citationStatus": "properly_cited",
+      "academicIntegrityIssue": false,
+      "matches": [
+        {
+          "highlightId": "h2",
+          "contextBefore": "Temperature increases can extend growing seasons in some regions while shortening them in others. ",
+          "matchedText": "Warmer temperatures may enable farmers to grow crops in areas previously unsuitable for agriculture",
+          "contextAfter": " (Smith et al., 2019). However, excessive heat can reduce crop yields"
+        }
+      ]
+    },
+    {
+      "id": "mc3",
+      "sourceType": "Internet",
+      "sourceName": "Encyclopedia Britannica – Green Revolution",
+      "sourceUrl": "https://www.britannica.com/topic/green-revolution",
+      "matchCount": 1,
+      "similarityPercent": 5,
+      "matchedWordCount": 48,
+      "isCited": false,
+      "citationStatus": "improperly_cited",
+      "academicIntegrityIssue": true,
+      "issueDescription": "Paraphrased source without citation",
+      "matches": [
+        {
+          "highlightId": "h3",
+          "contextBefore": "Precision agriculture technologies, including GPS-guided equipment and remote sensing, enable more efficient use of water, fertilizers, and pesticides.\n\n",
+          "matchedText": "The Green Revolution of the mid-20th century dramatically increased agricultural productivity through the development of high-yielding crop varieties, expanded irrigation infrastructure, and increased use of fertilizers and pesticides.",
+          "contextAfter": " These innovations helped feed billions of people and averted widespread famine"
+        }
+      ]
+    },
+    {
+      "id": "mc4",
+      "sourceType": "Internet",
+      "sourceName": "FAO Report – Crop Yield Impacts",
+      "sourceUrl": "http://www.fao.org/climate-change/resources/reports",
+      "matchCount": 1,
+      "similarityPercent": 2,
+      "matchedWordCount": 29,
+      "isCited": false,
+      "citationStatus": "not_cited",
+      "academicIntegrityIssue": false,
+      "issueDescription": "Short factual statement, minor issue",
+      "matches": [
+        {
+          "highlightId": "h4",
+          "contextBefore": "Wheat, rice, and maize - the three crops that provide more than half of the world's food calories - show distinct sensitivities to temperature and water stress. ",
+          "matchedText": "Research has demonstrated that for each degree Celsius increase in global mean temperature, average yields of these crops decline by approximately 3-10 percent.",
+          "contextAfter": " Coffee and cocoa production, crucial for many tropical economies"
+        }
+      ]
+    },
+    {
+      "id": "mc5",
+      "sourceType": "Submitted Works",
+      "sourceName": "Submitted to University Database – 2021 Fall Term",
+      "sourceUrl": "",
+      "matchCount": 1,
+      "similarityPercent": 3,
+      "matchedWordCount": 32,
+      "isCited": false,
+      "citationStatus": "not_cited",
+      "academicIntegrityIssue": true,
+      "issueDescription": "Match to previous student submission",
+      "matches": [
+        {
+          "highlightId": "h5",
+          "contextBefore": "Some researchers are exploring the potential of seaweed additives to reduce methane emissions from cattle, while others investigate ",
+          "matchedText": "cellular agriculture as a means of producing meat without traditional animal farming.",
+          "contextAfter": "\n\nPolicy interventions play a crucial role"
+        }
+      ]
+    }
+  ],
+  "highlights": [
+    {
+      "id": "h1",
+      "page": 1,
+      "startOffset": 315,
+      "endOffset": 1096,
+      "matchCardId": "mc1",
+      "text": "Climate change is already affecting agriculture...",
+      "isExcluded": false
+    },
+    {
+      "id": "h2",
+      "page": 1,
+      "startOffset": 1465,
+      "endOffset": 1564,
+      "matchCardId": "mc2",
+      "text": "Warmer temperatures may enable farmers to grow crops in areas previously unsuitable for agriculture",
+      "isExcluded": false
+    },
+    {
+      "id": "h3",
+      "page": 2,
+      "startOffset": 620,
+      "endOffset": 844,
+      "matchCardId": "mc3",
+      "text": "The Green Revolution of the mid-20th century dramatically increased agricultural productivity...",
+      "isExcluded": false
+    },
+    {
+      "id": "h4",
+      "page": 2,
+      "startOffset": 165,
+      "endOffset": 327,
+      "matchCardId": "mc4",
+      "text": "Research has demonstrated that for each degree Celsius increase in global mean temperature...",
+      "isExcluded": false
+    },
+    {
+      "id": "h5",
+      "page": 3,
+      "startOffset": 589,
+      "endOffset": 674,
+      "matchCardId": "mc5",
+      "text": "cellular agriculture as a means of producing meat without traditional animal farming",
+      "isExcluded": false
+    }
+  ],
+  "analysisMetadata": {
+    "topIssues": [
+      {
+        "type": "uncited_major_source",
+        "severity": "high",
+        "matchCardId": "mc1",
+        "description": "22% of paper from single uncited NOAA source",
+        "recommendation": "This is a significant academic integrity concern that requires immediate attention"
+      },
+      {
+        "type": "improperly_cited",
+        "severity": "medium",
+        "matchCardId": "mc3",
+        "description": "Green Revolution content lacks citation",
+        "recommendation": "Student should add proper citation to Encyclopedia Britannica"
+      },
+      {
+        "type": "student_collusion",
+        "severity": "medium",
+        "matchCardId": "mc5",
+        "description": "Match to previous student submission",
+        "recommendation": "Investigate potential collusion or self-plagiarism"
+      }
+    ],
+    "overallAssessment": "This paper has a significant academic integrity issue with 22% coming from a single uncited source. The remaining matches are minor, with one properly cited quotation.",
+    "primaryDriver": {
+      "matchCardId": "mc1",
+      "percentage": 22,
+      "sourceName": "Climate.gov – NOAA Article (2020)"
+    }
+  }
+}

@@ -148,9 +148,32 @@ app.post('/api/chat', async (req, res) => {
 
     const screenInstructions = {
       'document-viewer': [
-        'You are helping review a specific document.',
-        'You can see document details, similarity scores, and match sources.',
-        'When asked to navigate, use: {"command": "navigate", "args": {"target": "Similarity|AI Writing|Flags|Feedback|Grading"}}',
+        'You are an AI assistant helping educators analyze student papers for academic integrity.',
+        'Be clear, factual, and supportive. Help educators understand similarity scores and make informed decisions.',
+        '',
+        '**CRITICAL: You MUST include action buttons in your responses using this exact syntax:**',
+        '[ACTION:action_type|Button Label|optional_payload]',
+        '',
+        '**Understanding Similarity Scores:**',
+        '- Explain scores in plain language (e.g., "35% similarity means about one-third of this paper matches other sources")',
+        '- Identify the primary driver (the largest source contributing to the score)',
+        '- Distinguish between cited and uncited matches',
+        '- Note academic integrity concerns when uncited sources make up significant portions',
+        '- ALWAYS end your similarity analysis with at least one action button',
+        '',
+        '**Available Action Buttons (USE THESE FREQUENTLY):**',
+        '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
+        '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
+        '- [ACTION:add_comment|Add a comment about this|text] - Use to add a pre-written comment',
+        '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
+        '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
+        '',
+        '**Example Response Pattern (FOLLOW THIS):**',
+        'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
+        '',
+        'Would you like me to help you address this issue? [ACTION:draft_comment|Help me draft a comment]',
+        '',
+        '**REMEMBER:** Every response should include at least one action button where appropriate. When you identify an issue, ALWAYS offer a [ACTION:draft_comment|...] button.',
       ],
       'inbox': [
         'You are helping manage the submissions inbox.',
@@ -210,7 +233,24 @@ app.post('/api/chat', async (req, res) => {
       `TopSources: ${JSON.stringify(light.matchCards)}`,
     ].join('\n');
 
-    const fullPrompt = [sys, '', ctxText, '', `User: ${prompt}`].join('\n');
+    // Few-shot example showing proper action button usage
+    const fewShotExample = screenType === 'document-viewer' ? `
+
+Example conversation showing proper action button format:
+
+User: Explain this similarity score
+Assistant: This paper has a 35% similarity score, meaning about one-third of the text matches other sources. The primary driver is a 22% match to a Climate.gov NOAA article that appears to be uncited in the Works Cited section. This is a significant academic integrity concern.
+
+Would you like me to help you address this? [ACTION:draft_comment|Help me draft a comment]
+
+You can also: [ACTION:highlight_text|Show me the issue|mc1]
+
+---
+
+Now respond to the actual user query below, making sure to include action buttons in your response:
+` : '';
+
+    const fullPrompt = [sys, '', ctxText, fewShotExample, `User: ${prompt}`].join('\n');
 
     log.debug('chat:invoke_model', { id: req.id, promptLen: fullPrompt.length });
     const result = await model.generateContent(fullPrompt);
@@ -263,9 +303,32 @@ app.post('/api/chat/stream', async (req, res) => {
 
     const screenInstructions = {
       'document-viewer': [
-        'You are helping review a specific document.',
-        'You can see document details, similarity scores, and match sources.',
-        'When asked to navigate, use: {"command": "navigate", "args": {"target": "Similarity|AI Writing|Flags|Feedback|Grading"}}',
+        'You are an AI assistant helping educators analyze student papers for academic integrity.',
+        'Be clear, factual, and supportive. Help educators understand similarity scores and make informed decisions.',
+        '',
+        '**CRITICAL: You MUST include action buttons in your responses using this exact syntax:**',
+        '[ACTION:action_type|Button Label|optional_payload]',
+        '',
+        '**Understanding Similarity Scores:**',
+        '- Explain scores in plain language (e.g., "35% similarity means about one-third of this paper matches other sources")',
+        '- Identify the primary driver (the largest source contributing to the score)',
+        '- Distinguish between cited and uncited matches',
+        '- Note academic integrity concerns when uncited sources make up significant portions',
+        '- ALWAYS end your similarity analysis with at least one action button',
+        '',
+        '**Available Action Buttons (USE THESE FREQUENTLY):**',
+        '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
+        '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
+        '- [ACTION:add_comment|Add a comment about this|text] - Use to add a pre-written comment',
+        '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
+        '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
+        '',
+        '**Example Response Pattern (FOLLOW THIS):**',
+        'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
+        '',
+        'Would you like me to help you address this issue? [ACTION:draft_comment|Help me draft a comment]',
+        '',
+        '**REMEMBER:** Every response should include at least one action button where appropriate. When you identify an issue, ALWAYS offer a [ACTION:draft_comment|...] button.',
       ],
       'inbox': [
         'You are helping manage the submissions inbox.',
@@ -324,7 +387,25 @@ app.post('/api/chat/stream', async (req, res) => {
       `Highlights: ${JSON.stringify(light.visibleHighlights)}`,
       `TopSources: ${JSON.stringify(light.matchCards)}`,
     ].join('\n');
-    const fullPrompt = [sys, '', ctxText, '', `User: ${prompt}`].join('\n');
+
+    // Few-shot example showing proper action button usage
+    const fewShotExample = screenType === 'document-viewer' ? `
+
+Example conversation showing proper action button format:
+
+User: Explain this similarity score
+Assistant: This paper has a 35% similarity score, meaning about one-third of the text matches other sources. The primary driver is a 22% match to a Climate.gov NOAA article that appears to be uncited in the Works Cited section. This is a significant academic integrity concern.
+
+Would you like me to help you address this? [ACTION:draft_comment|Help me draft a comment]
+
+You can also: [ACTION:highlight_text|Show me the issue|mc1]
+
+---
+
+Now respond to the actual user query below, making sure to include action buttons in your response:
+` : '';
+
+    const fullPrompt = [sys, '', ctxText, fewShotExample, `User: ${prompt}`].join('\n');
 
     log.debug('chat_stream:invoke_model', { id: req.id });
     try {

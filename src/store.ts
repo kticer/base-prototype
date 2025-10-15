@@ -283,7 +283,17 @@ export interface StoreState {
   deletePointAnnotation: (id: string) => void;
   setEditingTextAnnotation: (id: string | null) => void;
   clearAnnotationState: () => void;
-  
+
+  // Chat Action Handlers
+  /** Handle chat action: draft a comment based on highlighted issue */
+  handleDraftCommentAction: (payload: { matchCardId?: string; issueDescription?: string }) => Promise<string>;
+  /** Handle chat action: add comment to document */
+  handleAddCommentAction: (payload: { text: string; page?: number; highlightId?: string }) => void;
+  /** Handle chat action: navigate to and highlight specific match */
+  handleHighlightTextAction: (payload: { matchCardId: string; matchIndex?: number }) => void;
+  /** Handle chat action: show source details */
+  handleShowSourceAction: (payload: { matchCardId: string }) => void;
+
   // Layered Data Actions
   /** Load base document and user state for a document */
   loadDocument: (documentId: string, baseDocument?: any) => Promise<void>;
@@ -1921,6 +1931,142 @@ export const useStore = create<StoreState>((set, get) => ({
         actionBarPosition: null,
       }
     }));
+  },
+
+  // Chat Action Handlers
+  handleDraftCommentAction: async (payload) => {
+    const { matchCardId, issueDescription } = payload;
+    const state = get();
+
+    // Find the match card if ID provided
+    let matchCard = matchCardId ? state.matchCards.find(mc => mc.id === matchCardId) : null;
+
+    // If no match card found, try to find the most problematic one
+    if (!matchCard) {
+      // Look for uncited sources with academic integrity issues
+      const problematicCards = state.matchCards.filter((mc: any) =>
+        mc.academicIntegrityIssue && !mc.isCited
+      );
+
+      if (problematicCards.length > 0) {
+        // Sort by similarity percentage (highest first)
+        matchCard = problematicCards.sort((a, b) => b.similarityPercent - a.similarityPercent)[0];
+      } else if (state.matchCards.length > 0) {
+        // Fallback to the largest source
+        matchCard = state.matchCards.sort((a, b) => b.similarityPercent - a.similarityPercent)[0];
+      }
+    }
+
+    if (!matchCard) {
+      return 'Please review the similarity sources and ensure all content is properly cited.';
+    }
+
+    // Cast to access extended properties
+    const extendedCard = matchCard as any;
+    const isCited = extendedCard.isCited ?? false;
+    const hasIntegrityIssue = extendedCard.academicIntegrityIssue ?? false;
+
+    // Draft a more detailed comment based on the issue
+    let draftText = '';
+
+    if (issueDescription) {
+      draftText = `Please review this section. ${issueDescription}`;
+    } else if (hasIntegrityIssue && !isCited) {
+      draftText = `This section contains a ${matchCard.similarityPercent}% match to "${matchCard.sourceName}" that is not cited in your Works Cited. Please add a proper citation or rework this section to use your own words.`;
+    } else if (!isCited) {
+      draftText = `This section shows a ${matchCard.similarityPercent}% match to "${matchCard.sourceName}". Please ensure this source is properly cited.`;
+    } else {
+      draftText = `Please review the citation for "${matchCard.sourceName}" (${matchCard.similarityPercent}% match) to ensure it follows the required format.`;
+    }
+
+    return draftText;
+  },
+
+  handleAddCommentAction: (payload) => {
+    const { text, page = 1, highlightId } = payload;
+    const state = get();
+
+    // Find highlight if provided
+    let commentPage = page;
+    let position = 100; // default position
+    let startOffset = 0;
+    let endOffset = 0;
+    let selectedText = '';
+
+    if (highlightId) {
+      const highlight = state.matchCards
+        .flatMap(mc => mc.matches)
+        .find(m => m.highlightId === highlightId);
+
+      if (highlight) {
+        commentPage = highlight.highlightId ? parseInt(highlight.highlightId.split('-')[0]) || page : page;
+        selectedText = highlight.matchedText || '';
+        // Approximate offsets from matched text length
+        startOffset = 0;
+        endOffset = selectedText.length;
+      }
+    }
+
+    // Add the comment
+    get().addComment({
+      type: 'general',
+      content: text,
+      page: commentPage,
+      position,
+      textSelection: selectedText,
+      startOffset,
+      endOffset,
+    });
+  },
+
+  handleHighlightTextAction: (payload) => {
+    const { matchCardId, matchIndex = 0 } = payload;
+    const state = get();
+
+    // Find the match card
+    const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
+    if (!matchCard) {
+      console.warn('Match card not found:', matchCardId);
+      return;
+    }
+
+    // Navigate to the match
+    get().selectMatch(matchCardId, matchIndex, 'card');
+
+    // Scroll to the highlight if it exists
+    const match = matchCard.matches[matchIndex];
+    if (match?.highlightId) {
+      setTimeout(() => {
+        const element = document.querySelector(`[data-highlight-id="${match.highlightId}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (element as HTMLElement).focus?.();
+        }
+      }, 100);
+    }
+  },
+
+  handleShowSourceAction: (payload) => {
+    const { matchCardId } = payload;
+    const state = get();
+
+    // Find the match card
+    const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
+    if (!matchCard) {
+      console.warn('Match card not found:', matchCardId);
+      return;
+    }
+
+    // Navigate to first match of this source and scroll to match card
+    get().selectMatch(matchCardId, 0, 'card');
+
+    // Scroll the match card into view
+    setTimeout(() => {
+      const cardElement = document.querySelector(`[data-match-card-id="${matchCardId}"]`);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 100);
   },
 
   // Chat Actions

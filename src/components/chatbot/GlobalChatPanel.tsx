@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useStore } from '../../store';
-import type { ScreenContext, ChatMessage } from '../../store';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Markdown from '../common/Markdown';
 import { askGeminiStream } from '../../services/geminiClient';
+import { parseActionsFromResponse, ensureActionButtons, type ChatAction } from '../../utils/chatActions';
+import { ChatActionButton } from './ChatActionButton';
 
 interface GlobalChatPanelProps {
   /** Context-specific data to send to AI */
@@ -30,11 +31,16 @@ export default function GlobalChatPanel({
     addChatMessage,
     clearChatHistory,
     setGeneratingArtifact,
+    handleDraftCommentAction,
+    handleAddCommentAction,
+    handleHighlightTextAction,
+    handleShowSourceAction,
   } = useStore();
 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState('');
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -101,6 +107,7 @@ export default function GlobalChatPanel({
 
     setInput('');
     setBusy(true);
+    setLastPrompt(prompt); // Store for fallback action button generation
 
     // Add user message
     addChatMessage({ role: 'user', content: prompt });
@@ -186,6 +193,85 @@ export default function GlobalChatPanel({
       setBusy(false);
     }
   };
+
+  // Handle action button clicks
+  const handleChatAction = useCallback(async (action: ChatAction) => {
+    console.log('🎯 Chat action triggered:', action);
+
+    try {
+      switch (action.type) {
+        case 'draft_comment': {
+          // Parse payload for matchCardId
+          const matchCardId = action.payload;
+          const draftedText = await handleDraftCommentAction({ matchCardId });
+
+          // Send drafted comment back to chat for review
+          addChatMessage({
+            role: 'assistant',
+            content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
+          });
+          break;
+        }
+
+        case 'add_comment': {
+          // Payload contains the comment text
+          const text = action.payload || action.label;
+          handleAddCommentAction({ text });
+
+          addChatMessage({
+            role: 'system',
+            content: '✅ Comment added to document.',
+          });
+          break;
+        }
+
+        case 'highlight_text': {
+          // Payload contains matchCardId
+          const matchCardId = action.payload;
+          if (matchCardId) {
+            handleHighlightTextAction({ matchCardId });
+            addChatMessage({
+              role: 'system',
+              content: '✅ Navigated to highlighted text.',
+            });
+          }
+          break;
+        }
+
+        case 'navigate': {
+          if (action.payload && onNavigate) {
+            onNavigate(action.payload);
+            addChatMessage({
+              role: 'system',
+              content: `✅ Navigated to ${action.payload}.`,
+            });
+          }
+          break;
+        }
+
+        case 'show_source': {
+          const matchCardId = action.payload;
+          if (matchCardId) {
+            handleShowSourceAction({ matchCardId });
+            addChatMessage({
+              role: 'system',
+              content: '✅ Showing source details.',
+            });
+          }
+          break;
+        }
+
+        default:
+          console.warn('Unknown action type:', action.type);
+      }
+    } catch (error) {
+      console.error('Error handling chat action:', error);
+      addChatMessage({
+        role: 'system',
+        content: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleHighlightTextAction, handleShowSourceAction]);
 
   // Helper function to extract rubric from unstructured text
   function extractRubricFromText(text: string): any | null {
@@ -325,9 +411,81 @@ export default function GlobalChatPanel({
     }
   };
 
-  const handlePromptSuggestionClick = (suggestion: string) => {
-    setInput(suggestion);
-    inputRef.current?.focus();
+  const handlePromptSuggestionClick = async (suggestion: string) => {
+    // Directly send the suggestion instead of populating the input field
+    if (!suggestion.trim() || busy || !currentScreen) return;
+
+    setBusy(true);
+    setLastPrompt(suggestion); // Store for fallback action button generation
+
+    // Add user message
+    addChatMessage({ role: 'user', content: suggestion });
+
+    const isRubricRequest = /\b(create|generate|make|build|design)\s+(a\s+)?(rubric|grading\s+criteria|assessment|evaluation)/i.test(suggestion);
+
+    try {
+      let streamingContent = '';
+
+      const enhancedPrompt = isRubricRequest && !suggestion.includes('```json')
+        ? `${suggestion}\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`
+        : suggestion;
+
+      const response = await askGeminiStream(enhancedPrompt, contextData, (chunk) => {
+        streamingContent += chunk;
+      });
+
+      const fullText = response.text || streamingContent;
+
+      addChatMessage({
+        role: 'assistant',
+        content: fullText,
+        engine: response.isReal ? 'gemini' : 'mock',
+      });
+
+      // Handle navigation commands
+      const navMatch = fullText.match(/```json\s*\n.*?"command":\s*"navigate".*?"target":\s*"([^"]+)"/s);
+      if (navMatch && onNavigate) {
+        const target = navMatch[1];
+        onNavigate(target);
+        addChatMessage({
+          role: 'system',
+          content: `Navigated to ${target}`,
+        });
+      }
+
+      // Handle artifacts
+      let artifact = null;
+      const jsonMatch = fullText.match(/```json\s*\n([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.type === 'rubric' && parsed.criteria) {
+            artifact = parsed;
+          }
+        } catch (e) {
+          console.warn('Failed to parse JSON block:', e);
+        }
+      }
+
+      if (!artifact && isRubricRequest) {
+        artifact = extractRubricFromText(fullText);
+      }
+
+      if (artifact) {
+        setGeneratingArtifact(true, artifact);
+        if (onArtifactGenerated) {
+          onArtifactGenerated(artifact);
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      addChatMessage({
+        role: 'assistant',
+        content: 'Sorry, I encountered an error processing your request.',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!chat.isOpen || !currentScreen) return null;
@@ -392,41 +550,71 @@ export default function GlobalChatPanel({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-            <div
-              className={
-                'max-w-[85%] rounded px-3 py-2 text-sm ' +
-                (msg.role === 'user'
-                  ? 'bg-blue-600 text-white whitespace-pre-wrap'
-                  : msg.role === 'system'
-                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs'
-                  : 'bg-white border')
-              }
-            >
-              {msg.role === 'assistant' && msg.engine === 'gemini' && (
-                <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
-              )}
-              {msg.role === 'user' || msg.role === 'system' ? (
-                msg.content
-              ) : (
-                <Markdown text={msg.content} />
-              )}
+        {messages.map((msg) => {
+          // Parse actions from assistant messages
+          let parsedContent = msg.role === 'assistant' ? parseActionsFromResponse(msg.content) : { text: msg.content, actions: [] };
+
+          // Apply fallback action buttons if AI didn't include any
+          if (msg.role === 'assistant' && parsedContent.actions.length === 0) {
+            parsedContent = ensureActionButtons(parsedContent, {
+              prompt: lastPrompt,
+              similarityScore: contextData?.similarityScore,
+              matchCards: contextData?.matchCards,
+            });
+          }
+
+          return (
+            <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+              <div
+                className={
+                  'max-w-[85%] rounded px-3 py-2 text-sm ' +
+                  (msg.role === 'user'
+                    ? 'bg-blue-600 text-white whitespace-pre-wrap'
+                    : msg.role === 'system'
+                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs'
+                    : 'bg-white border')
+                }
+              >
+                {msg.role === 'assistant' && msg.engine === 'gemini' && (
+                  <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
+                )}
+                {msg.role === 'user' || msg.role === 'system' ? (
+                  parsedContent.text
+                ) : (
+                  <Markdown text={parsedContent.text} />
+                )}
+
+                {/* Render action buttons if present */}
+                {parsedContent.actions.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {parsedContent.actions.map((action, idx) => (
+                      <ChatActionButton
+                        key={idx}
+                        action={action}
+                        onAction={handleChatAction}
+                        disabled={busy}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Prompt Suggestions */}
-      {promptSuggestions.length > 0 && messages.length === 0 && (
-        <div className="px-3 py-2 border-t bg-white">
-          <div className="text-xs text-gray-600 mb-2">Try asking:</div>
-          <div className="flex flex-wrap gap-2">
-            {promptSuggestions.slice(0, 3).map((suggestion, idx) => (
+      {/* Prompt Suggestions - Always visible for quick actions */}
+      {promptSuggestions.length > 0 && (
+        <div className="px-3 py-2 border-t bg-gray-50">
+          <div className="text-[10px] text-gray-500 mb-1.5 font-medium uppercase tracking-wide">
+            {messages.length === 0 ? 'Quick Actions' : 'Suggested Actions'}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {promptSuggestions.map((suggestion, idx) => (
               <button
                 key={idx}
                 onClick={() => handlePromptSuggestionClick(suggestion)}
-                className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded border text-left"
+                className="text-xs px-3 py-1.5 bg-white hover:bg-blue-50 hover:border-blue-300 rounded-full border border-gray-300 text-gray-700 transition-colors duration-150 shadow-sm hover:shadow"
                 disabled={busy}
               >
                 {suggestion}

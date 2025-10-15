@@ -80,6 +80,22 @@
     ]
   },
   {
+    "id": "f3",
+    "type": "folder",
+    "title": "Research Papers – Fall 2024",
+    "dateAdded": "2025-09-01",
+    "children": [
+      {
+        "id": "doc-story1-test",
+        "type": "document",
+        "title": "The Impact of Climate Change on Global Agriculture",
+        "author": "Sarah Johnson",
+        "similarity": 35,
+        "dateAdded": "2025-10-15"
+      }
+    ]
+  },
+  {
     "id": "doc-why-are-there-so-many-oreo-flavors-1751316967167-1",
     "type": "document",
     "title": "Why are there so many Oreo Flavors?",

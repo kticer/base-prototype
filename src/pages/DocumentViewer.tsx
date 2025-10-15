@@ -350,20 +350,47 @@ export default function DocumentViewer() {
     },
     similarityScore,
     wordCount,
-    matchCards: doc.matchCards?.slice(0, 5).map(card => ({
+    matchCards: doc.matchCards?.map(card => ({
       id: card.id,
       sourceName: card.sourceName,
+      sourceType: card.sourceType,
       similarityPercent: card.similarityPercent,
+      matchCount: card.matchCount,
+      matchedWordCount: card.matchedWordCount,
+      isCited: (card as any).isCited,
+      citationStatus: (card as any).citationStatus,
+      academicIntegrityIssue: (card as any).academicIntegrityIssue,
+      issueDescription: (card as any).issueDescription,
     })),
+    analysisMetadata: (doc as any).analysisMetadata,
     currentPage,
     primaryTab,
   } : null;
 
-  const promptSuggestions = [
-    "Summarize this document",
-    "What are the top similarity sources?",
-    "Navigate to the Grading tab",
-  ];
+  // Generate context-aware prompt suggestions
+  const promptSuggestions = React.useMemo(() => {
+    if (!doc) return [];
+
+    const suggestions = [];
+
+    // Always offer similarity explanation
+    if (similarityScore > 0) {
+      suggestions.push("Explain this similarity score");
+    }
+
+    // Offer thesis identification
+    suggestions.push("Identify the thesis statement");
+
+    // Offer source analysis if there are sources
+    if (doc.matchCards && doc.matchCards.length > 0) {
+      suggestions.push("List the primary sources cited");
+    }
+
+    // Offer AI writing analysis
+    suggestions.push("Analyze this paper for AI writing");
+
+    return suggestions;
+  }, [doc, similarityScore]);
 
   if (loading) return <div className="p-6">Loading document...</div>;
   if (!doc) return <div className="p-6">Document not found</div>;
