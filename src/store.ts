@@ -245,6 +245,17 @@ export interface StoreState {
   /** Content of the cell being edited */
   editingCellContent: string;
 
+  // Course Analytics (Story 2: Hero's Journey)
+  /** Course-wide analytics data */
+  courseAnalytics: import('./types/courseAnalytics').CourseAnalytics | null;
+  /** Student patterns and intervention needs */
+  studentPatterns: import('./types/courseAnalytics').StudentPattern[];
+  /** Intervention recommendations */
+  interventionRecommendations: import('./types/courseAnalytics').InterventionRecommendation[];
+  /** All course submissions with document data */
+  courseSubmissions: import('./types/courseAnalytics').CourseSubmission[];
+  /** Loading state for course analytics */
+  courseAnalyticsLoading: boolean;
 
   // Actions
   setNavigation: (navigation: Partial<NavigationState>) => void;
@@ -430,6 +441,16 @@ export interface StoreState {
   useReusableComment: (commentId: string) => void;
   /** Create a reusable comment from user input */
   createReusableCommentFromText: (content: string, type: string, tags?: string[]) => ReusableComment;
+
+  // Course Analytics Actions (Story 2: Hero's Journey)
+  /** Load all course submissions and compute analytics */
+  loadCourseAnalytics: () => Promise<void>;
+  /** Refresh analytics with current data */
+  refreshCourseAnalytics: () => void;
+  /** Export course analytics as CSV */
+  exportCourseAnalyticsCSV: () => string;
+  /** Export intervention recommendations as CSV */
+  exportInterventionsCSV: () => string;
 }
 
 const COLORS = ['#CC1476', '#225EC7', '#007546', '#7533E8', '#006D81'];
@@ -564,6 +585,13 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedCell: null,
   isEditingCell: false,
   editingCellContent: '',
+
+  // Course Analytics (Story 2: Hero's Journey)
+  courseAnalytics: null,
+  studentPatterns: [],
+  interventionRecommendations: [],
+  courseSubmissions: [],
+  courseAnalyticsLoading: false,
 
   // Core navigation action
   setNavigation: (newNavigation) => {
@@ -1905,6 +1933,94 @@ export const useStore = create<StoreState>((set, get) => ({
     const comment = createReusableComment(content, type, tags);
     get().addReusableComment(comment);
     return comment;
+  },
+
+  // Course Analytics Actions (Story 2: Hero's Journey)
+  loadCourseAnalytics: async () => {
+    set({ courseAnalyticsLoading: true });
+    console.log('[Course Analytics] Loading course submissions...');
+
+    try {
+      // Import utilities dynamically to avoid circular dependencies
+      const { loadCourseSubmissions } = await import('./utils/courseDataLoader');
+      const {
+        computeCourseAnalytics,
+        analyzeStudentPatterns,
+        generateInterventionRecommendations
+      } = await import('./utils/courseAnalytics');
+
+      // Load all submissions with document data
+      const submissions = await loadCourseSubmissions();
+
+      // Compute analytics
+      const analytics = computeCourseAnalytics(submissions);
+      const patterns = analyzeStudentPatterns(submissions);
+      const recommendations = generateInterventionRecommendations(patterns);
+
+      set({
+        courseSubmissions: submissions,
+        courseAnalytics: analytics,
+        studentPatterns: patterns,
+        interventionRecommendations: recommendations,
+        courseAnalyticsLoading: false,
+      });
+
+      console.log('[Course Analytics] ✅ Loaded analytics for', submissions.length, 'submissions');
+      console.log('[Course Analytics] Found', recommendations.length, 'students needing intervention');
+    } catch (error) {
+      console.error('[Course Analytics] ❌ Error loading analytics:', error);
+      set({ courseAnalyticsLoading: false });
+    }
+  },
+
+  refreshCourseAnalytics: () => {
+    const state = get();
+    if (state.courseSubmissions.length === 0) {
+      console.warn('[Course Analytics] No submissions loaded, cannot refresh');
+      return;
+    }
+
+    // Re-compute analytics from existing submissions
+    import('./utils/courseAnalytics').then(({
+      computeCourseAnalytics,
+      analyzeStudentPatterns,
+      generateInterventionRecommendations
+    }) => {
+      const analytics = computeCourseAnalytics(state.courseSubmissions);
+      const patterns = analyzeStudentPatterns(state.courseSubmissions);
+      const recommendations = generateInterventionRecommendations(patterns);
+
+      set({
+        courseAnalytics: analytics,
+        studentPatterns: patterns,
+        interventionRecommendations: recommendations,
+      });
+
+      console.log('[Course Analytics] ✅ Refreshed analytics');
+    });
+  },
+
+  exportCourseAnalyticsCSV: () => {
+    const state = get();
+    if (!state.courseAnalytics) {
+      console.error('[Course Analytics] No analytics data to export');
+      return '';
+    }
+
+    // Use dynamic import to avoid bundling issues
+    const { exportAnalyticsAsCSV } = require('./utils/courseAnalytics');
+    return exportAnalyticsAsCSV(state.courseAnalytics);
+  },
+
+  exportInterventionsCSV: () => {
+    const state = get();
+    if (state.interventionRecommendations.length === 0) {
+      console.error('[Course Analytics] No interventions to export');
+      return '';
+    }
+
+    const { exportInterventionsAsCSV } = require('./utils/courseAnalytics');
+    return exportInterventionsAsCSV(state.interventionRecommendations);
   },
 
   // Point Annotation Actions

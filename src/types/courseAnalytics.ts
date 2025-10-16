@@ -3,7 +3,7 @@
  * Aggregates data across all submissions to provide insights for educators
  */
 
-import type { DocumentData } from './index';
+import type { DocumentData } from '.';
 
 /**
  * Common source appearing across multiple student submissions

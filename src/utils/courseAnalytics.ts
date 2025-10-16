@@ -12,7 +12,6 @@ import type {
   SourceTypeTrends,
   InterventionRecommendation,
 } from '../types/courseAnalytics';
-import type { DocumentData } from '../types';
 
 /**
  * Compute comprehensive course analytics from submissions
