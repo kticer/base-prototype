@@ -7,10 +7,17 @@ import GlobalChatPanel from '../components/chatbot/GlobalChatPanel';
 import { PrototypeControls } from '../components/settings/PrototypeControls';
 import { FeatureFlagsModal } from '../components/settings/FeatureFlagsModal';
 import { useStore } from '../store';
+import { useCourseAnalytics } from '../hooks/useCourseAnalytics';
+import { CourseStatsCards } from '../components/insights/CourseStatsCards';
+import { SimilarityDistributionChart } from '../components/insights/SimilarityDistributionChart';
+import { CommonSourcesTable } from '../components/insights/CommonSourcesTable';
+import { InterventionsTable } from '../components/insights/InterventionsTable';
+import { ExportButtons } from '../components/insights/ExportButtons';
 
 export default function InsightsPage() {
   usePageTitle('Insights – iThenticate Prototype');
   const { chat } = useStore();
+  const { analytics, loading: analyticsLoading } = useCourseAnalytics(true);
   const [rootItems, setRootItems] = useState<FolderOrDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,18 +89,26 @@ export default function InsightsPage() {
     return { total, avgSim, distribution };
   }, [rootItems]);
 
-  // Context data for chat
-  const chatContext = {
-    screen: 'insights',
+  // Context data for chat (use course analytics if available, fallback to basic stats)
+  const chatContext = analytics ? {
+    screen: 'insights' as const,
+    courseAnalytics: analytics,
+    totalDocuments: analytics.totalSubmissions,
+    avgSimilarity: analytics.averageSimilarity,
+    highRiskCount: analytics.highRiskCount,
+    commonSources: analytics.commonSources.slice(0, 5),
+  } : {
+    screen: 'insights' as const,
     stats,
     totalDocuments: stats.total,
     avgSimilarity: stats.avgSim,
   };
 
   const promptSuggestions = [
-    "Summarize the similarity insights",
-    "How many submissions have high similarity?",
-    "What's the distribution of similarity scores?",
+    "Summarize the course similarity insights",
+    "Which students need intervention?",
+    "What are the most common sources?",
+    "How can I improve citation rates?",
   ];
 
   return (
@@ -110,35 +125,38 @@ export default function InsightsPage() {
         <InboxTabs />
 
         <div className="px-8 pb-8 pt-6">
-          {loading && <div>Loading insights...</div>}
-          {error && <div className="text-red-600">{error}</div>}
-          {!loading && !error && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white border rounded p-4">
-                <div className="text-sm text-gray-500">Total Submissions</div>
-                <div className="text-2xl font-semibold">{stats.total}</div>
-              </div>
-              <div className="bg-white border rounded p-4">
-                <div className="text-sm text-gray-500">Average Similarity</div>
-                <div className="text-2xl font-semibold">{stats.avgSim}%</div>
-              </div>
-              <div className="bg-white border rounded p-4">
-                <div className="text-sm text-gray-500">Distribution</div>
-                <div className="mt-2 space-y-1">
-                  {stats.distribution.map((b) => (
-                    <div key={b.label} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{b.label}</span>
-                      <span className="font-medium">{b.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {/* Header with Export Buttons */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Course Analytics</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Insights across all submissions in your course
+              </p>
+            </div>
+            <ExportButtons />
+          </div>
 
-              <div className="md:col-span-3 bg-white border rounded p-4">
-                <div className="text-sm text-gray-600">
-                  More detailed insights (per-assignment, per-student, common sources) can be added here.
-                </div>
-              </div>
+          {(loading || analyticsLoading) && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-gray-500">Loading course analytics...</div>
+            </div>
+          )}
+
+          {error && <div className="text-red-600 mb-6">{error}</div>}
+
+          {!loading && !analyticsLoading && !error && analytics && (
+            <div className="space-y-6">
+              {/* Stats Cards */}
+              <CourseStatsCards />
+
+              {/* Distribution Chart */}
+              <SimilarityDistributionChart />
+
+              {/* Common Sources */}
+              <CommonSourcesTable />
+
+              {/* Student Interventions */}
+              <InterventionsTable />
             </div>
           )}
         </div>
