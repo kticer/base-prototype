@@ -59,6 +59,7 @@ type GradingAnnotation = {
 
 export default function DocumentViewer() {
   const assignColors = useStore((s) => s.assignColors);
+  const setMatchCards = useStore((s) => s.setMatchCards);
   const { id } = useParams();
   const [doc, setDoc] = useState<DocumentData | null>(null);
   usePageTitle(doc ? `${doc.title} – iThenticate Prototype` : 'Loading...');
@@ -80,7 +81,7 @@ export default function DocumentViewer() {
 
   const { selectedSourceId, selectedMatchIndex } = useNavigation();
   const similarityScore = useSimilarityScore(doc?.matchCards ?? []);
-  const { tabState, setTabState, selectedCommentId, sidebarVisible, toggleSidebar, chat } =
+  const { tabState, setTabState, selectedCommentId, sidebarVisible, toggleSidebar, chat, openChat } =
     useStore();
   const { toasts, showToast, hideToast } = useToast();
   const { deleteState, handleDelete, cancelDeletion } =
@@ -104,6 +105,11 @@ export default function DocumentViewer() {
 
   // Use saveNow for manual save operations (prevent unused variable warning)
   console.log('Manual save available:', typeof saveNow === 'function');
+
+  // Open chat for document-viewer screen on mount
+  useEffect(() => {
+    openChat('document-viewer');
+  }, [openChat]);
 
   // Update activeTab default when primaryTab changes
   useEffect(() => {
@@ -286,8 +292,11 @@ export default function DocumentViewer() {
       const matchCardIds = doc.matchCards.map((c) => c.id);
       assignColors(matchCardIds);
       console.log('[DocumentViewer] Assigned highlight colors to:', matchCardIds);
+
+      // Load match cards into store for action handlers to use
+      setMatchCards(doc.matchCards);
     }
-  }, [doc, assignColors]);
+  }, [doc, assignColors, setMatchCards]);
 
   // Load feature flags and reusable comments on component mount
   useEffect(() => {
@@ -352,11 +361,11 @@ export default function DocumentViewer() {
     wordCount,
     matchCards: doc.matchCards?.map(card => ({
       id: card.id,
-      sourceName: card.sourceName,
-      sourceType: card.sourceType,
-      similarityPercent: card.similarityPercent,
-      matchCount: card.matchCount,
-      matchedWordCount: card.matchedWordCount,
+      sourceName: (card as any).sourceName,
+      sourceType: (card as any).sourceType,
+      similarityPercent: (card as any).similarityPercent,
+      matchCount: (card as any).matchCount || card.matches?.length || 0,
+      matchedWordCount: (card as any).matchedWordCount,
       isCited: (card as any).isCited,
       citationStatus: (card as any).citationStatus,
       academicIntegrityIssue: (card as any).academicIntegrityIssue,
@@ -520,16 +529,55 @@ function renderDocumentWithHighlights(
 ): React.ReactNode[] {
   const paragraphs = html.split(/<\/p>\s*/i).filter(Boolean);
 
+  // Build a map of paragraph boundaries in the page content
+  // We need to reconstruct the page text to match how offsets were calculated
+  const pageText = paragraphs
+    .map(p => p.replace(/<\/?p>/gi, '').trim())
+    .join('\n\n'); // Paragraphs are separated by double newlines
+
+  const paragraphBoundaries: Array<{ start: number; end: number; text: string }> = [];
+  let currentOffset = 0;
+
+  paragraphs.forEach((paraHtml) => {
+    const rawText = paraHtml.replace(/<\/?p>/gi, '').trim();
+    const start = currentOffset;
+    const end = start + rawText.length;
+    paragraphBoundaries.push({ start, end, text: rawText });
+    currentOffset = end + 2; // +2 for the \n\n separator
+  });
+
   return paragraphs.map((paraHtml, paraIdx) => {
     const rawText = paraHtml.replace(/<\/?p>/gi, '').trim();
+    const paraBoundary = paragraphBoundaries[paraIdx];
+
+    // Find highlights that overlap with this paragraph
     const paraHighlights = highlights
       .filter((hl) => {
-        const paraStart = paraHtml.indexOf(rawText);
-        return (
-          paraStart !== -1 &&
-          hl.startOffset >= 0 &&
-          hl.endOffset <= rawText.length
-        );
+        // Check if highlight overlaps with this paragraph's range
+        const overlaps = hl.startOffset < paraBoundary.end && hl.endOffset > paraBoundary.start;
+        if (overlaps && paraIdx === 0) {
+          console.log(`[Highlight Rendering] Highlight ${hl.id} overlaps with paragraph ${paraIdx}:`, {
+            hlRange: [hl.startOffset, hl.endOffset],
+            paraRange: [paraBoundary.start, paraBoundary.end],
+          });
+        }
+        return overlaps;
+      })
+      .map((hl) => {
+        // Convert page-level offsets to paragraph-level offsets
+        const paraStart = Math.max(0, hl.startOffset - paraBoundary.start);
+        const paraEnd = Math.min(rawText.length, hl.endOffset - paraBoundary.start);
+        if (paraIdx === 0) {
+          console.log(`[Highlight Rendering] Converted ${hl.id} to paragraph offsets:`, {
+            page: [hl.startOffset, hl.endOffset],
+            para: [paraStart, paraEnd],
+          });
+        }
+        return {
+          ...hl,
+          startOffset: paraStart,
+          endOffset: paraEnd,
+        };
       })
       .sort((a, b) => a.startOffset - b.startOffset);
 

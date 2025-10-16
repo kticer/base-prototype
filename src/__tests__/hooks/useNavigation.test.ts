@@ -12,6 +12,7 @@ describe('useNavigation Hook', () => {
         selectedMatchIndex: 0,
         selectedHighlightId: null,
         navigationSource: null,
+        chatReferencedHighlightId: null,
       },
       matchCards: [],
     });

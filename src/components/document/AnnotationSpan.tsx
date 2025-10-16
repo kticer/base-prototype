@@ -36,25 +36,34 @@ export const AnnotationSpan: React.FC<AnnotationSpanProps> = React.memo(({
   const [isHovered, setIsHovered] = useState(false);
   const hoverHighlight = useHoverHighlight();
   const color = useHighlightColor(matchCardId || "");
-  const { selectComment, selectedCommentId } = useStore();
+  const { selectComment, selectedCommentId, navigation } = useStore();
 
   // Handle similarity highlighting
-  const { isSelected: isSimilaritySelected, onClick: onSimilarityClick } = 
+  const { isSelected: isSimilaritySelected, onClick: onSimilarityClick } =
     useHighlightSelection(matchCardId || "", matchIndex || 0);
 
   // Handle comment selection
   const isCommentSelected = selectedCommentId === commentId;
 
+  // Check if this highlight is being referenced by chat
+  const isChatReferenced = navigation.chatReferencedHighlightId === highlightId;
+
   const getAnnotationStyle = () => {
     switch (annotationType) {
       case "similarity": {
-        const backgroundAlpha = isSimilaritySelected ? 'B3' : '4D';
+        // Increase alpha when chat references this highlight
+        let backgroundAlpha = isSimilaritySelected ? 0.7 : 0.3;
+        if (isChatReferenced) {
+          backgroundAlpha = 0.9; // Max brightness for chat reference
+        }
+
         return {
-          backgroundColor: hexToRgba(color, backgroundAlpha === 'B3' ? 0.7 : 0.3),
-          borderWidth: "1px",
+          backgroundColor: hexToRgba(color, backgroundAlpha),
+          borderWidth: isChatReferenced ? "2px" : "1px",
           borderStyle: "solid",
-          borderColor: isHovered ? color : "transparent",
-          transition: "background-color 550ms ease, border-color 150ms ease",
+          borderColor: isChatReferenced ? color : (isHovered ? color : "transparent"),
+          transition: "background-color 550ms ease, border-color 150ms ease, border-width 300ms ease",
+          boxShadow: isChatReferenced ? `0 0 8px ${hexToRgba(color, 0.6)}` : 'none',
         };
       }
       case "comment":

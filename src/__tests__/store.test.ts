@@ -11,6 +11,7 @@ describe('Zustand Store', () => {
         selectedMatchIndex: 0,
         selectedHighlightId: null,
         navigationSource: null,
+        chatReferencedHighlightId: null,
       },
       tabState: {
         primaryTab: "Similarity",

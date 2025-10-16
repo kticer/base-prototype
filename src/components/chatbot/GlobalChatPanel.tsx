@@ -203,13 +203,81 @@ export default function GlobalChatPanel({
         case 'draft_comment': {
           // Parse payload for matchCardId
           const matchCardId = action.payload;
-          const draftedText = await handleDraftCommentAction({ matchCardId });
 
-          // Send drafted comment back to chat for review
-          addChatMessage({
-            role: 'assistant',
-            content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
-          });
+          // Always try to use AI for more contextual drafting
+          const useAI = !busy && (contextData?.matchCards || contextData?.doc);
+
+          if (useAI) {
+            // Use AI to draft a more sophisticated comment
+            setBusy(true);
+            addChatMessage({
+              role: 'system',
+              content: '✍️ Drafting comment with AI assistance...',
+            });
+
+            try {
+              // Build context for AI comment drafting
+              let aiPrompt = '';
+
+              if (matchCardId && contextData?.matchCards) {
+                const matchCard = contextData.matchCards.find((mc: any) => mc.id === matchCardId);
+                if (matchCard) {
+                  aiPrompt = `Draft a professional, constructive comment for a student about this similarity match:\n\n` +
+                    `Document: "${contextData.doc?.title || 'Untitled'}"\n` +
+                    `Source: ${matchCard.sourceName}\n` +
+                    `Similarity: ${matchCard.similarityPercent}%\n` +
+                    `Citation status: ${matchCard.isCited ? 'Cited' : 'Not cited'}\n` +
+                    `Academic integrity issue: ${matchCard.academicIntegrityIssue ? 'Yes' : 'No'}\n\n` +
+                    `Requirements:\n` +
+                    `- Keep it brief (2-3 sentences maximum)\n` +
+                    `- Be specific about the issue\n` +
+                    `- Be constructive and educational\n` +
+                    `- Suggest a concrete next step for the student\n` +
+                    `- Use a supportive but professional tone\n\n` +
+                    `Respond with ONLY the comment text, no quotes, no additional explanation.`;
+                }
+              } else {
+                // Generic comment request without specific match card
+                aiPrompt = `Draft a brief (2-3 sentences), professional feedback comment for a student paper.\n` +
+                  `Document: "${contextData?.doc?.title || 'Untitled'}"\n` +
+                  `Focus on being constructive, specific, and actionable.\n\n` +
+                  `Respond with ONLY the comment text, no quotes, no additional explanation.`;
+              }
+
+              let streamingContent = '';
+              const response = await askGeminiStream(aiPrompt, contextData, (chunk) => {
+                streamingContent += chunk;
+              });
+
+              const draftedText = (response.text || streamingContent).trim();
+
+              // Remove any surrounding quotes that AI might have added
+              const cleanedText = draftedText.replace(/^["']|["']$/g, '');
+
+              addChatMessage({
+                role: 'assistant',
+                content: `Here's a draft comment:\n\n"${cleanedText}"\n\n[ACTION:add_comment|Add this comment|${cleanedText}]`,
+                engine: response.isReal ? 'gemini' : 'mock',
+              });
+            } catch (error) {
+              console.error('AI draft comment failed:', error);
+              // Fallback to deterministic draft
+              const draftedText = await handleDraftCommentAction({ matchCardId });
+              addChatMessage({
+                role: 'assistant',
+                content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
+              });
+            } finally {
+              setBusy(false);
+            }
+          } else {
+            // Use deterministic drafting when AI is unavailable
+            const draftedText = await handleDraftCommentAction({ matchCardId });
+            addChatMessage({
+              role: 'assistant',
+              content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
+            });
+          }
           break;
         }
 
@@ -261,6 +329,46 @@ export default function GlobalChatPanel({
           break;
         }
 
+        case 'next_issue':
+        case 'prev_issue': {
+          // Navigate to next/previous academic integrity issue
+          const direction = action.type === 'next_issue' ? 1 : -1;
+          const issues = contextData?.matchCards
+            ?.filter((mc: any) => mc.academicIntegrityIssue)
+            .sort((a: any, b: any) => b.similarityPercent - a.similarityPercent) || [];
+
+          if (issues.length === 0) {
+            addChatMessage({
+              role: 'system',
+              content: '✅ No academic integrity issues found in this document.',
+            });
+            break;
+          }
+
+          // Find current issue index
+          const currentId = contextData?.matchCards?.find((mc: any) =>
+            mc.id === useStore.getState().navigation.selectedSourceId
+          )?.id;
+          const currentIndex = currentId ? issues.findIndex((i: any) => i.id === currentId) : -1;
+          const nextIndex = currentIndex + direction;
+
+          if (nextIndex < 0 || nextIndex >= issues.length) {
+            addChatMessage({
+              role: 'system',
+              content: `✅ ${direction > 0 ? 'No more' : 'No previous'} issues to navigate to.`,
+            });
+            break;
+          }
+
+          const nextIssue = issues[nextIndex];
+          handleHighlightTextAction({ matchCardId: nextIssue.id });
+          addChatMessage({
+            role: 'system',
+            content: `📍 Issue ${nextIndex + 1} of ${issues.length}: ${nextIssue.similarityPercent}% match to **${nextIssue.sourceName}**\n\n[ACTION:draft_comment|Draft a comment|${nextIssue.id}]`,
+          });
+          break;
+        }
+
         default:
           console.warn('Unknown action type:', action.type);
       }
@@ -271,7 +379,7 @@ export default function GlobalChatPanel({
         content: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
-  }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleHighlightTextAction, handleShowSourceAction]);
+  }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleHighlightTextAction, handleShowSourceAction, contextData, busy, setBusy]);
 
   // Helper function to extract rubric from unstructured text
   function extractRubricFromText(text: string): any | null {
@@ -551,10 +659,12 @@ export default function GlobalChatPanel({
         )}
 
         {messages.map((msg) => {
-          // Parse actions from assistant messages
-          let parsedContent = msg.role === 'assistant' ? parseActionsFromResponse(msg.content) : { text: msg.content, actions: [] };
+          // Parse actions from assistant and system messages
+          let parsedContent = (msg.role === 'assistant' || msg.role === 'system')
+            ? parseActionsFromResponse(msg.content)
+            : { text: msg.content, actions: [] };
 
-          // Apply fallback action buttons if AI didn't include any
+          // Apply fallback action buttons if AI didn't include any (only for assistant messages)
           if (msg.role === 'assistant' && parsedContent.actions.length === 0) {
             parsedContent = ensureActionButtons(parsedContent, {
               prompt: lastPrompt,
@@ -578,7 +688,7 @@ export default function GlobalChatPanel({
                 {msg.role === 'assistant' && msg.engine === 'gemini' && (
                   <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
                 )}
-                {msg.role === 'user' || msg.role === 'system' ? (
+                {msg.role === 'user' ? (
                   parsedContent.text
                 ) : (
                   <Markdown text={parsedContent.text} />

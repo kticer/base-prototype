@@ -3,7 +3,7 @@
  */
 
 export interface ChatAction {
-  type: 'draft_comment' | 'add_comment' | 'highlight_text' | 'navigate' | 'generate_list' | 'show_source';
+  type: 'draft_comment' | 'add_comment' | 'highlight_text' | 'navigate' | 'generate_list' | 'show_source' | 'next_issue' | 'prev_issue';
   label: string;
   payload?: any;
 }
@@ -134,6 +134,21 @@ export function ensureActionButtons(
         type: 'navigate',
         label: 'Go to Grading tab',
         payload: 'Grading',
+      });
+    }
+  }
+
+  // Pattern 4: Multiple issues - offer navigation
+  const issueCount = context.matchCards?.filter((mc) => mc.academicIntegrityIssue).length || 0;
+  if (issueCount > 1 && (
+    responseText.includes('issue') ||
+    responseText.includes('similarity') ||
+    responseText.includes('match')
+  )) {
+    if (!fallbackActions.some((a) => a.type === 'next_issue')) {
+      fallbackActions.push({
+        type: 'next_issue',
+        label: `Next issue (${issueCount} total)`,
       });
     }
   }

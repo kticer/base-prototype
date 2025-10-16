@@ -39,6 +39,8 @@ export interface NavigationState {
   selectedHighlightId: HighlightId | null;
   /** Source that initiated the navigation (card click vs highlight click) */
   navigationSource: "card" | "highlight" | null;
+  /** Highlight ID that chat is currently referencing (for visual feedback) */
+  chatReferencedHighlightId: HighlightId | null;
 }
 
 /**
@@ -247,6 +249,7 @@ export interface StoreState {
   // Actions
   setNavigation: (navigation: Partial<NavigationState>) => void;
   setTabState: (tabState: Partial<TabState>) => void;
+  setMatchCards: (matchCards: StoreState['matchCards']) => void;
   hoverHighlight: (id: HighlightId | null) => void;
   toggleSourceInclusion: (id: MatchCardId) => void;
   assignColors: (ids: MatchCardId[]) => void;
@@ -438,6 +441,7 @@ export const useStore = create<StoreState>((set, get) => ({
     selectedMatchIndex: 0,
     selectedHighlightId: null,
     navigationSource: null,
+    chatReferencedHighlightId: null,
   },
   
   // Initialize tab state
@@ -575,17 +579,50 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
   },
 
+  // Match cards action
+  setMatchCards: (matchCards) => {
+    set({ matchCards });
+    console.log('[Store] Match cards loaded:', matchCards.length, 'cards');
+  },
+
   // Convenience navigation methods
   selectMatch: (sourceId, matchIndex, source = "card") => {
     const matchCard = get().matchCards.find((c) => c.id === sourceId);
     const highlightId = matchCard?.matches[matchIndex]?.highlightId ?? null;
-    
+
     get().setNavigation({
       selectedSourceId: sourceId,
       selectedMatchIndex: matchIndex,
       selectedHighlightId: highlightId,
       navigationSource: source,
     });
+
+    // Bidirectional sync: If user clicked a highlight, notify chat with contextual actions
+    if (source === 'highlight' && matchCard && get().chat.isOpen) {
+      const extendedCard = matchCard as any;
+      const isCited = extendedCard.isCited ?? false;
+      const hasIntegrityIssue = extendedCard.academicIntegrityIssue ?? false;
+
+      // Build a contextual message with action buttons
+      let message = `📍 You selected a ${extendedCard.similarityPercent || 0}% match to **${extendedCard.sourceName || 'Unknown Source'}**`;
+
+      if (hasIntegrityIssue && !isCited) {
+        message += ' (uncited source)';
+      } else if (isCited) {
+        message += ' (cited)';
+      }
+
+      message += '\n\nQuick actions: [ACTION:draft_comment|Draft a comment|' + matchCard.id + '] [ACTION:show_source|View source details|' + matchCard.id + ']';
+
+      // Add system message to chat
+      const currentScreen = get().chat.currentScreen;
+      if (currentScreen) {
+        get().addChatMessage({
+          role: 'system',
+          content: message,
+        });
+      }
+    }
   },
 
   clearSelection: () => {
@@ -995,6 +1032,7 @@ export const useStore = create<StoreState>((set, get) => ({
           selectedMatchIndex: 0,
           selectedHighlightId: null,
           navigationSource: null,
+          chatReferencedHighlightId: null,
         }
       });
       
@@ -1950,10 +1988,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
       if (problematicCards.length > 0) {
         // Sort by similarity percentage (highest first)
-        matchCard = problematicCards.sort((a, b) => b.similarityPercent - a.similarityPercent)[0];
+        matchCard = problematicCards.sort((a: any, b: any) => (b.similarityPercent || 0) - (a.similarityPercent || 0))[0];
       } else if (state.matchCards.length > 0) {
         // Fallback to the largest source
-        matchCard = state.matchCards.sort((a, b) => b.similarityPercent - a.similarityPercent)[0];
+        matchCard = state.matchCards.sort((a: any, b: any) => (b.similarityPercent || 0) - (a.similarityPercent || 0))[0];
       }
     }
 
@@ -1972,101 +2010,162 @@ export const useStore = create<StoreState>((set, get) => ({
     if (issueDescription) {
       draftText = `Please review this section. ${issueDescription}`;
     } else if (hasIntegrityIssue && !isCited) {
-      draftText = `This section contains a ${matchCard.similarityPercent}% match to "${matchCard.sourceName}" that is not cited in your Works Cited. Please add a proper citation or rework this section to use your own words.`;
+      draftText = `This section contains a ${extendedCard.similarityPercent || 0}% match to "${extendedCard.sourceName || 'an external source'}" that is not cited in your Works Cited. Please add a proper citation or rework this section to use your own words.`;
     } else if (!isCited) {
-      draftText = `This section shows a ${matchCard.similarityPercent}% match to "${matchCard.sourceName}". Please ensure this source is properly cited.`;
+      draftText = `This section shows a ${extendedCard.similarityPercent || 0}% match to "${extendedCard.sourceName || 'an external source'}". Please ensure this source is properly cited.`;
     } else {
-      draftText = `Please review the citation for "${matchCard.sourceName}" (${matchCard.similarityPercent}% match) to ensure it follows the required format.`;
+      draftText = `Please review the citation for "${extendedCard.sourceName || 'this source'}" (${extendedCard.similarityPercent || 0}% match) to ensure it follows the required format.`;
     }
 
     return draftText;
   },
 
   handleAddCommentAction: (payload) => {
-    const { text, page = 1, highlightId } = payload;
-    const state = get();
+    try {
+      const { text, page = 1, highlightId } = payload;
 
-    // Find highlight if provided
-    let commentPage = page;
-    let position = 100; // default position
-    let startOffset = 0;
-    let endOffset = 0;
-    let selectedText = '';
-
-    if (highlightId) {
-      const highlight = state.matchCards
-        .flatMap(mc => mc.matches)
-        .find(m => m.highlightId === highlightId);
-
-      if (highlight) {
-        commentPage = highlight.highlightId ? parseInt(highlight.highlightId.split('-')[0]) || page : page;
-        selectedText = highlight.matchedText || '';
-        // Approximate offsets from matched text length
-        startOffset = 0;
-        endOffset = selectedText.length;
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        console.error('Cannot add comment: invalid text provided');
+        throw new Error('Comment text is required');
       }
-    }
 
-    // Add the comment
-    get().addComment({
-      type: 'general',
-      content: text,
-      page: commentPage,
-      position,
-      textSelection: selectedText,
-      startOffset,
-      endOffset,
-    });
+      const state = get();
+
+      // Find highlight if provided
+      let commentPage = page;
+      let position = 100; // default position
+      let startOffset = 0;
+      let endOffset = 0;
+      let selectedText = '';
+
+      if (highlightId) {
+        const highlight = state.matchCards
+          .flatMap(mc => mc.matches)
+          .find((m: any) => m.highlightId === highlightId);
+
+        if (highlight) {
+          const extendedHighlight = highlight as any;
+          commentPage = extendedHighlight.highlightId ? parseInt(extendedHighlight.highlightId.split('-')[0]) || page : page;
+          selectedText = extendedHighlight.matchedText || '';
+          // Approximate offsets from matched text length
+          startOffset = 0;
+          endOffset = selectedText.length;
+        } else {
+          console.warn(`Highlight ${highlightId} not found, using default position`);
+        }
+      }
+
+      // Add the comment
+      get().addComment({
+        id: `comment-${Date.now()}`,
+        type: 'Feedback',
+        content: text.trim(),
+        page: commentPage,
+        position,
+        text: selectedText,
+        startOffset,
+        endOffset,
+      });
+
+      console.log(`✅ Comment added successfully on page ${commentPage}`);
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      throw error;
+    }
   },
 
   handleHighlightTextAction: (payload) => {
-    const { matchCardId, matchIndex = 0 } = payload;
-    const state = get();
+    try {
+      const { matchCardId, matchIndex = 0 } = payload;
 
-    // Find the match card
-    const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
-    if (!matchCard) {
-      console.warn('Match card not found:', matchCardId);
-      return;
-    }
+      if (!matchCardId) {
+        console.error('Cannot highlight text: matchCardId is required');
+        throw new Error('Match card ID is required');
+      }
 
-    // Navigate to the match
-    get().selectMatch(matchCardId, matchIndex, 'card');
+      const state = get();
 
-    // Scroll to the highlight if it exists
-    const match = matchCard.matches[matchIndex];
-    if (match?.highlightId) {
-      setTimeout(() => {
-        const element = document.querySelector(`[data-highlight-id="${match.highlightId}"]`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          (element as HTMLElement).focus?.();
-        }
-      }, 100);
+      // Find the match card
+      const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
+      if (!matchCard) {
+        console.error(`Match card not found: ${matchCardId}`);
+        throw new Error(`Match card ${matchCardId} not found`);
+      }
+
+      // Validate match index
+      if (matchIndex < 0 || matchIndex >= matchCard.matches.length) {
+        console.error(`Invalid match index ${matchIndex} for card ${matchCardId} (has ${matchCard.matches.length} matches)`);
+        throw new Error('Invalid match index');
+      }
+
+      // Navigate to the match
+      get().selectMatch(matchCardId, matchIndex, 'card');
+
+      // Scroll to the highlight if it exists
+      const match = matchCard.matches[matchIndex];
+      if (match?.highlightId) {
+        // Set chat-referenced highlight for visual feedback
+        get().setNavigation({ chatReferencedHighlightId: match.highlightId });
+
+        setTimeout(() => {
+          const element = document.querySelector(`[data-highlight-id="${match.highlightId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (element as HTMLElement).focus?.();
+            console.log(`✅ Navigated to highlight: ${match.highlightId}`);
+          } else {
+            console.warn(`Highlight element not found in DOM: ${match.highlightId}`);
+          }
+        }, 100);
+
+        // Clear the chat reference after animation completes
+        setTimeout(() => {
+          get().setNavigation({ chatReferencedHighlightId: null });
+        }, 2000);
+      } else {
+        console.warn(`No highlightId for match ${matchIndex} in card ${matchCardId}`);
+      }
+    } catch (error) {
+      console.error('Error highlighting text:', error);
+      throw error;
     }
   },
 
   handleShowSourceAction: (payload) => {
-    const { matchCardId } = payload;
-    const state = get();
+    try {
+      const { matchCardId } = payload;
 
-    // Find the match card
-    const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
-    if (!matchCard) {
-      console.warn('Match card not found:', matchCardId);
-      return;
-    }
-
-    // Navigate to first match of this source and scroll to match card
-    get().selectMatch(matchCardId, 0, 'card');
-
-    // Scroll the match card into view
-    setTimeout(() => {
-      const cardElement = document.querySelector(`[data-match-card-id="${matchCardId}"]`);
-      if (cardElement) {
-        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (!matchCardId) {
+        console.error('Cannot show source: matchCardId is required');
+        throw new Error('Match card ID is required');
       }
-    }, 100);
+
+      const state = get();
+
+      // Find the match card
+      const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
+      if (!matchCard) {
+        console.error(`Match card not found: ${matchCardId}`);
+        throw new Error(`Match card ${matchCardId} not found`);
+      }
+
+      // Navigate to first match of this source and scroll to match card
+      get().selectMatch(matchCardId, 0, 'card');
+
+      // Scroll the match card into view
+      setTimeout(() => {
+        const cardElement = document.querySelector(`[data-match-card-id="${matchCardId}"]`);
+        if (cardElement) {
+          cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          console.log(`✅ Showed source card: ${matchCardId}`);
+        } else {
+          console.warn(`Match card element not found in DOM: ${matchCardId}`);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error showing source:', error);
+      throw error;
+    }
   },
 
   // Chat Actions

@@ -11,6 +11,7 @@ describe('useMatchInteraction Hooks', () => {
         selectedMatchIndex: 0,
         selectedHighlightId: null,
         navigationSource: null,
+        chatReferencedHighlightId: null,
       },
       highlightColors: {},
       excludedSourceIds: new Set(),

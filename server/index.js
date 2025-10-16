@@ -231,6 +231,8 @@ app.post('/api/chat', async (req, res) => {
       `FocusText: ${JSON.stringify(light.focusText)}`,
       `Highlights: ${JSON.stringify(light.visibleHighlights)}`,
       `TopSources: ${JSON.stringify(light.matchCards)}`,
+      `Primary Tab: ${context?.primaryTab || 'Similarity'}`,
+      `Current Page: ${context?.currentPage || 1}`,
     ].join('\n');
 
     // Few-shot example showing proper action button usage
@@ -386,6 +388,8 @@ app.post('/api/chat/stream', async (req, res) => {
       `FocusText: ${JSON.stringify(light.focusText)}`,
       `Highlights: ${JSON.stringify(light.visibleHighlights)}`,
       `TopSources: ${JSON.stringify(light.matchCards)}`,
+      `Primary Tab: ${context?.primaryTab || 'Similarity'}`,
+      `Current Page: ${context?.currentPage || 1}`,
     ].join('\n');
 
     // Few-shot example showing proper action button usage
@@ -491,7 +495,14 @@ function lighten(ctx) {
     wordCount,
     similarityScore,
     matchCards: Array.isArray(matchCards)
-      ? matchCards.slice(0, 3).map((m) => ({ id: m.id, sourceName: m.sourceName, similarityPercent: m.similarityPercent }))
+      ? matchCards.slice(0, 5).map((m) => ({
+          id: m.id,
+          sourceName: m.sourceName,
+          similarityPercent: m.similarityPercent,
+          isCited: m.isCited,
+          academicIntegrityIssue: m.academicIntegrityIssue,
+          matchCount: m.matchCount,
+        }))
       : [],
     selection: settings?.selection ? { text: String(settings.selection.text || '').slice(0, 800), page: settings.selection.page } : undefined,
     focusText: Array.isArray(settings?.focusText)
