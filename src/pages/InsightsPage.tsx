@@ -111,15 +111,23 @@ export default function InsightsPage() {
     "How can I improve citation rates?",
   ];
 
+  // Calculate padding for main content when chat is open in shrink mode
+  const chatPadding = (() => {
+    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
+    const baseWidth = chat.panelWidth;
+    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
+    return expandedWidth;
+  })();
+
   return (
-    <div className="flex min-h-screen w-screen relative">
+    <div className="min-h-screen w-full relative">
       {/* Prototype Controls */}
       <PrototypeControls />
 
       {/* Main content area */}
       <div
-        className="flex-1 bg-gray-50 w-full transition-all duration-300"
-        style={chat.isOpen && chat.displayMode === 'shrink' ? { marginRight: `${chat.panelWidth}px` } : {}}
+        className="bg-gray-50 transition-all duration-300"
+        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
       >
         <InboxNavBar title="My Files" onSearchChange={() => {}} screen="insights" />
         <InboxTabs />

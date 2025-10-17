@@ -117,6 +117,8 @@ export interface ChatMessage {
   content: string;
   engine?: 'gemini' | 'mock';
   timestamp: string;
+  /** Reference to artifact if this message generated one */
+  artifact?: any;
 }
 
 /**

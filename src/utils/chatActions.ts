@@ -60,6 +60,7 @@ export function ensureActionButtons(
   parsed: ParsedChatResponse,
   context: {
     prompt: string;
+    screen?: string; // Add screen context to prevent inappropriate actions
     similarityScore?: number;
     matchCards?: Array<{ id: string; academicIntegrityIssue?: boolean; similarityPercent: number }>;
   }
@@ -72,13 +73,17 @@ export function ensureActionButtons(
   const fallbackActions: ChatAction[] = [];
   const responseText = parsed.text.toLowerCase();
   const prompt = context.prompt.toLowerCase();
+  const isDocumentViewer = context.screen === 'document-viewer';
 
-  // Pattern 1: Similarity score explanation
+  // Pattern 1: Similarity score explanation (only on document-viewer)
   if (
-    (prompt.includes('explain') && prompt.includes('similarity')) ||
-    prompt.includes('similarity score') ||
-    responseText.includes('similarity score') ||
-    responseText.includes('similarity comes from')
+    isDocumentViewer &&
+    (
+      (prompt.includes('explain') && prompt.includes('similarity')) ||
+      prompt.includes('similarity score') ||
+      responseText.includes('similarity score') ||
+      responseText.includes('similarity comes from')
+    )
   ) {
     // Find the largest uncited source
     const problematicSource = context.matchCards
@@ -106,13 +111,16 @@ export function ensureActionButtons(
     }
   }
 
-  // Pattern 2: Issues/concerns mentioned
+  // Pattern 2: Issues/concerns mentioned (only on document-viewer)
   if (
-    responseText.includes('issue') ||
-    responseText.includes('concern') ||
-    responseText.includes('uncited') ||
-    responseText.includes('not cited') ||
-    responseText.includes('academic integrity')
+    isDocumentViewer &&
+    (
+      responseText.includes('issue') ||
+      responseText.includes('concern') ||
+      responseText.includes('uncited') ||
+      responseText.includes('not cited') ||
+      responseText.includes('academic integrity')
+    )
   ) {
     if (!fallbackActions.some((a) => a.type === 'draft_comment')) {
       fallbackActions.push({
@@ -122,12 +130,15 @@ export function ensureActionButtons(
     }
   }
 
-  // Pattern 3: Grading mentioned
+  // Pattern 3: Grading mentioned (only on document-viewer)
   if (
-    responseText.includes('grading') ||
-    responseText.includes('grade') ||
-    responseText.includes('rubric') ||
-    responseText.includes('score')
+    isDocumentViewer &&
+    (
+      responseText.includes('grading') ||
+      responseText.includes('grade') ||
+      responseText.includes('rubric') ||
+      responseText.includes('score')
+    )
   ) {
     if (!fallbackActions.some((a) => a.type === 'navigate')) {
       fallbackActions.push({
@@ -138,18 +149,20 @@ export function ensureActionButtons(
     }
   }
 
-  // Pattern 4: Multiple issues - offer navigation
-  const issueCount = context.matchCards?.filter((mc) => mc.academicIntegrityIssue).length || 0;
-  if (issueCount > 1 && (
-    responseText.includes('issue') ||
-    responseText.includes('similarity') ||
-    responseText.includes('match')
-  )) {
-    if (!fallbackActions.some((a) => a.type === 'next_issue')) {
-      fallbackActions.push({
-        type: 'next_issue',
-        label: `Next issue (${issueCount} total)`,
-      });
+  // Pattern 4: Multiple issues - offer navigation (only on document-viewer)
+  if (isDocumentViewer) {
+    const issueCount = context.matchCards?.filter((mc) => mc.academicIntegrityIssue).length || 0;
+    if (issueCount > 1 && (
+      responseText.includes('issue') ||
+      responseText.includes('similarity') ||
+      responseText.includes('match')
+    )) {
+      if (!fallbackActions.some((a) => a.type === 'next_issue')) {
+        fallbackActions.push({
+          type: 'next_issue',
+          label: `Next issue (${issueCount} total)`,
+        });
+      }
     }
   }
 

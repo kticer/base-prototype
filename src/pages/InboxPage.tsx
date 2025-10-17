@@ -32,15 +32,21 @@ useEffect(() => {
       
       const rawData = await res.json();
       const data = validateFolderStructure(rawData);
-      // Build a map of documentId -> dateAdded from the tree
+      // Build maps of documentId -> metadata from the tree
       const dateMap: Record<string, string> = {};
-      const collectDates = (items: any[]) => {
+      const similarityMap: Record<string, number> = {};
+      const collectMetadata = (items: any[]) => {
         for (const it of items) {
-          if (it.type === 'document') dateMap[it.id] = it.dateAdded;
-          if (it.type === 'folder' && it.children) collectDates(it.children);
+          if (it.type === 'document') {
+            dateMap[it.id] = it.dateAdded;
+            if (typeof it.similarity === 'number') {
+              similarityMap[it.id] = it.similarity;
+            }
+          }
+          if (it.type === 'folder' && it.children) collectMetadata(it.children);
         }
       };
-      collectDates(data as any[]);
+      collectMetadata(data as any[]);
       const extractDocuments = (items: any[]): string[] => {
         const ids: string[] = [];
         for (const item of items) {
@@ -88,7 +94,8 @@ useEffect(() => {
         id,
         title: docMetadataMap[id]?.title ?? 'Unknown',
         author: docMetadataMap[id]?.author ?? 'Unknown',
-        similarity: typeof docMetadataMap[id]?.similarity === 'number' ? (docMetadataMap[id]!.similarity as number) : null,
+        // Use similarity from folder_structure.json, not from document JSON
+        similarity: typeof similarityMap[id] === 'number' ? similarityMap[id] : null,
         aiWriting: null,
         flags: 0,
         viewedAt: null,
@@ -204,15 +211,24 @@ useEffect(() => {
 
   if (loading) return <div className="p-4">Loading...</div>;
 
+  // Calculate padding for main content when chat is open in shrink mode
+  const chatPadding = (() => {
+    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
+
+    const baseWidth = chat.panelWidth;
+    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
+    return expandedWidth;
+  })();
+
   return (
-    <div className="flex min-h-screen w-screen relative">
+    <div className="min-h-screen w-full relative">
       {/* Prototype Controls */}
       <PrototypeControls />
 
       {/* Main content area */}
       <div
-        className="flex-1 bg-gray-50 w-full transition-all duration-300"
-        style={chat.isOpen && chat.displayMode === 'shrink' ? { marginRight: `${chat.panelWidth}px` } : {}}
+        className="bg-gray-50 transition-all duration-300"
+        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
       >
         <InboxNavBar title="Submissions" onSearchChange={() => {}} screen="inbox" />
         <div className="bg-white border-b px-6 py-2 flex gap-6 text-sm">

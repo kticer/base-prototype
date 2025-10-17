@@ -404,8 +404,16 @@ export default function DocumentViewer() {
   if (loading) return <div className="p-6">Loading document...</div>;
   if (!doc) return <div className="p-6">Document not found</div>;
 
+  // Calculate padding for document when chat is open in shrink mode
+  const chatPadding = (() => {
+    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
+    const baseWidth = chat.panelWidth;
+    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
+    return expandedWidth;
+  })();
+
   return (
-    <div className="flex flex-col w-screen h-screen">
+    <div className="flex flex-col w-full h-screen relative">
       {/* Dynamic CSS to control similarity highlight visibility */}
       <style>{`
         ${
@@ -432,8 +440,11 @@ export default function DocumentViewer() {
         onPrimaryTabChange={setPrimaryTab}
       />
 
-      {/* Main Content Container - Flex row when chat is in shrink mode */}
-      <div className={`flex flex-1 overflow-hidden ${chat.isOpen && chat.displayMode === 'shrink' ? 'flex-row' : 'flex-col'}`}>
+      {/* Main Content Container */}
+      <div
+        className="flex flex-1 overflow-hidden transition-all duration-300"
+        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
+      >
         {/* Document Content Area */}
         <div className="flex flex-1 overflow-hidden relative">
         <DocumentContent
@@ -477,22 +488,22 @@ export default function DocumentViewer() {
         />
         </div>
         {/* End of Document Content Area */}
-
-        {/* Global Chat Panel - Inside flex container for shrink mode */}
-        {chatContext && (
-          <GlobalChatPanel
-            contextData={chatContext}
-            promptSuggestions={promptSuggestions}
-            onNavigate={(target) => {
-              // Handle navigation commands from chat
-              if (target === 'Similarity' || target === 'AI Writing' || target === 'Flags' || target === 'Feedback' || target === 'Grading') {
-                setPrimaryTab(target);
-              }
-            }}
-          />
-        )}
       </div>
       {/* End of Main Content Container */}
+
+      {/* Global Chat Panel - Fixed positioned */}
+      {chatContext && (
+        <GlobalChatPanel
+          contextData={chatContext}
+          promptSuggestions={promptSuggestions}
+          onNavigate={(target) => {
+            // Handle navigation commands from chat
+            if (target === 'Similarity' || target === 'AI Writing' || target === 'Flags' || target === 'Feedback' || target === 'Grading') {
+              setPrimaryTab(target);
+            }
+          }}
+        />
+      )}
 
       {/* Toast notifications */}
       {toasts.map((toast) => (

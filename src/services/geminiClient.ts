@@ -1,11 +1,21 @@
 import type { DocumentData, MatchCard } from '../types';
 
 export type GeminiContext = {
-  doc: DocumentData;
+  screen?: string;
+  doc?: DocumentData;
   wordCount?: number;
   similarityScore?: number;
   matchCards?: MatchCard[];
   settings?: Record<string, unknown>;
+  // Inbox-specific context
+  totalSubmissions?: number;
+  selectedCount?: number;
+  avgSimilarity?: number;
+  // Insights-specific context
+  courseAnalytics?: any;
+  totalDocuments?: number;
+  highRiskCount?: number;
+  commonSources?: any[];
 };
 
 /**
@@ -35,26 +45,47 @@ export async function askGemini(prompt: string, ctx: GeminiContext): Promise<{ t
 
   // MOCK FALLBACK: keep deterministic, prompt-aware responses
   await new Promise((r) => setTimeout(r, 300));
-  const { doc, wordCount = 0, similarityScore, matchCards = [] } = ctx;
+  const { screen, doc, wordCount = 0, similarityScore, matchCards = [], totalSubmissions, avgSimilarity } = ctx;
   const topSources = matchCards.slice(0, 3).map((m) => `${m.sourceName} (${m.similarityPercent}%)`).join(', ');
   const p = prompt.toLowerCase();
-  if (p.includes('grading') || p.includes('go to grading') || p.includes('grade')) {
-    return { text: `Okay, switching to the Grading tab.\n\n\`\`\`json\n{\n  \"command\": \"navigate\",\n  \"args\": { \"target\": \"Grading\" }\n}\n\`\`\`\n`, isReal: false };
+
+  // Inbox-specific responses
+  if (screen === 'inbox') {
+    if (p.includes('average') || p.includes('avg')) {
+      return { text: `The average similarity score across ${totalSubmissions || 0} submissions is ${avgSimilarity || 0}%.`, isReal: false };
+    }
+    if (p.includes('high similarity') || p.includes('submissions with high')) {
+      return { text: `I can help you find submissions with high similarity. Looking at the ${totalSubmissions || 0} submissions, the average similarity is ${avgSimilarity || 0}%. You can sort the table by the Similarity column to see the highest scores first.`, isReal: false };
+    }
+    if (p.includes('grading') || p.includes('need grading')) {
+      return { text: `I can see you have ${totalSubmissions || 0} total submissions in your inbox. To check grading status, you can sort by the Grade column or open individual submissions to grade them.`, isReal: false };
+    }
+    return { text: `You have ${totalSubmissions || 0} submissions in your inbox with an average similarity of ${avgSimilarity || 0}%. How can I help you analyze or manage these submissions?`, isReal: false };
   }
-  if (p.includes('summary') || p.includes('summarize')) {
-    return { text: `Here’s a brief summary of "${doc.title}" by ${doc.author}.
+
+  // Document viewer responses
+  if (doc) {
+    if (p.includes('grading') || p.includes('go to grading') || p.includes('grade')) {
+      return { text: `Okay, switching to the Grading tab.\n\n\`\`\`json\n{\n  \"command\": \"navigate\",\n  \"args\": { \"target\": \"Grading\" }\n}\n\`\`\`\n`, isReal: false };
+    }
+    if (p.includes('summary') || p.includes('summarize')) {
+      return { text: `Here's a brief summary of "${doc.title}" by ${doc.author}.
 - Word count: ~${wordCount}
 - Similarity: ${similarityScore ?? 'n/a'}%
 - Top sources: ${topSources || 'n/a'}
 `, isReal: false };
+    }
+    if (p.includes('plagiarism') || p.includes('similarity') || p.includes('sources')) {
+      return { text: `The current similarity is ${similarityScore ?? 'n/a'}%. Notable overlaps include: ${topSources || 'no major overlaps listed in this mock'}.`, isReal: false };
+    }
+    if (p.includes('feedback') || p.includes('improve')) {
+      return { text: `Suggested feedback for "${doc.title}": 1) Clarify the thesis. 2) Strengthen transitions. 3) Add citations.`, isReal: false };
+    }
+    return { text: `I'm here to help with "${doc.title}" by ${doc.author}. Ask for a summary, feedback, or to navigate (e.g., "Go to grading").`, isReal: false };
   }
-  if (p.includes('plagiarism') || p.includes('similarity') || p.includes('sources')) {
-    return { text: `The current similarity is ${similarityScore ?? 'n/a'}%. Notable overlaps include: ${topSources || 'no major overlaps listed in this mock'}.`, isReal: false };
-  }
-  if (p.includes('feedback') || p.includes('improve')) {
-    return { text: `Suggested feedback for "${doc.title}": 1) Clarify the thesis. 2) Strengthen transitions. 3) Add citations.`, isReal: false };
-  }
-  return { text: `I’m here to help with "${doc.title}" by ${doc.author}. Ask for a summary, feedback, or to navigate (e.g., "Go to grading").`, isReal: false };
+
+  // Generic fallback
+  return { text: `I'm here to help you with the ${screen || 'current'} page. What would you like to know?`, isReal: false };
 }
 
 export async function askGeminiStream(

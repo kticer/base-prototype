@@ -46,49 +46,52 @@ export default function SubmissionTable({
   const thBtn = 'inline-flex items-center select-none hover:text-gray-900';
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-visible w-full">
-      <table className="min-w-full text-sm table-fixed">
+    <div className="bg-white rounded-lg shadow-sm w-full overflow-x-auto">
+      <table className="w-full text-sm">
         <thead className="bg-gray-100 text-gray-800 text-sm font-medium">
           <tr>
-            <th className="w-10 px-4">
+            {/* Frozen checkbox column */}
+            <th className="sticky left-0 z-20 bg-gray-100 w-10 px-4">
               <input type="checkbox" checked={areAllSelected} onChange={onToggleSelectAll} />
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold w-2/5">
+            {/* Frozen Student/Title column */}
+            <th className="sticky left-10 z-20 bg-gray-100 text-left py-2.5 px-4 font-semibold min-w-[300px]">
               <button className={thBtn} onClick={() => onSortChange('student')}>
                 Student / Title <SortIndicator active={sortKey === 'student'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            {/* Scrollable columns */}
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[140px]">
               <button className={thBtn} onClick={() => onSortChange('submitted')}>
                 Submitted <SortIndicator active={sortKey === 'submitted'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[100px]">
               <button className={thBtn} onClick={() => onSortChange('grade')}>
                 Grade <SortIndicator active={sortKey === 'grade'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[120px]">
               <button className={thBtn} onClick={() => onSortChange('similarity')}>
                 Similarity <SortIndicator active={sortKey === 'similarity'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[120px]">
               <button className={thBtn} onClick={() => onSortChange('aiWriting')}>
                 AI Writing <SortIndicator active={sortKey === 'aiWriting'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[100px]">
               <button className={thBtn} onClick={() => onSortChange('flags')}>
                 Flags <SortIndicator active={sortKey === 'flags'} />
               </button>
             </th>
-            <th className="text-left py-2.5 px-4 font-semibold">
+            <th className="text-left py-2.5 px-4 font-semibold min-w-[140px]">
               <button className={thBtn} onClick={() => onSortChange('viewed')}>
                 Viewed <SortIndicator active={sortKey === 'viewed'} />
               </button>
             </th>
-            <th className="w-12 px-4"></th>
+            <th className="w-12 px-4 min-w-[60px]"></th>
           </tr>
         </thead>
         <tbody>
@@ -182,9 +185,16 @@ function SubmissionRow({
     );
   };
 
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <tr className="hover:bg-gray-100 border-b last:border-0">
-      <td className="py-3 px-4 text-gray-800 text-sm">
+    <tr
+      className="border-b last:border-0 group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Frozen checkbox column */}
+      <td className={`sticky left-0 z-10 py-3 px-4 text-gray-800 text-sm border-r border-gray-200 transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>
         <input
           type="checkbox"
           checked={selected}
@@ -194,18 +204,20 @@ function SubmissionRow({
           }}
         />
       </td>
-      <td className="py-3 px-4 text-gray-800 text-sm">
+      {/* Frozen Student/Title column */}
+      <td className={`sticky left-10 z-10 py-3 px-4 text-gray-800 text-sm border-r border-gray-200 transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>
         <div className="font-medium text-gray-900 truncate" title={item.author}>{item.author}</div>
         <button
-          className="text-blue-600 hover:underline truncate"
+          className="text-blue-600 hover:underline truncate block max-w-full"
           onClick={(e) => { e.stopPropagation(); onOpen(); }}
           title={item.title}
         >
           {item.title}
         </button>
       </td>
-      <td className="py-3 px-4 text-gray-800 text-sm">{formatSubmitted(item.submittedAt)}</td>
-      <td className="py-3 px-4 text-gray-800 text-sm">
+      {/* Scrollable columns */}
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>{formatSubmitted(item.submittedAt)}</td>
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>
         {item.grade === undefined || item.grade === null ? (
           <button
             className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
@@ -218,15 +230,15 @@ function SubmissionRow({
           <span className="inline-flex items-center gap-1 font-medium text-gray-900">{String(item.grade)}</span>
         )}
       </td>
-      <td className="py-3 px-4 text-gray-800 text-sm">{getPercentBadges(item.similarity)}</td>
-      <td className="py-3 px-4 text-gray-800 text-sm">{getPercentBadges(item.aiWriting ?? null)}</td>
-      <td className="py-3 px-4 text-gray-800 text-sm">
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>{getPercentBadges(item.similarity)}</td>
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>{getPercentBadges(item.aiWriting ?? null)}</td>
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>
         <span className="inline-flex items-center gap-1 text-gray-700">
           <span role="img" aria-label="flag">🚩</span> {item.flags ?? 0}
         </span>
       </td>
-      <td className="py-3 px-4 text-gray-800 text-sm">{formatViewed(item.viewedAt)}</td>
-      <td className="relative py-3 px-4 text-gray-800 text-sm flex items-center justify-center">
+      <td className={`py-3 px-4 text-gray-800 text-sm transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>{formatViewed(item.viewedAt)}</td>
+      <td className={`relative py-3 px-4 text-gray-800 text-sm flex items-center justify-center transition-colors ${isHovered ? 'bg-gray-50' : 'bg-white'}`}>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -238,7 +250,7 @@ function SubmissionRow({
         </button>
         {menuOpen && (
           <div
-            className="absolute right-4 top-full mt-2 w-32 bg-white border border-gray-200 shadow-md rounded z-10"
+            className="absolute right-4 top-full mt-2 w-32 bg-white border border-gray-200 shadow-md rounded z-30"
             onClick={(e) => e.stopPropagation()}
           >
             <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => { onOpen(); setMenuOpen(false); }}>

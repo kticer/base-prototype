@@ -41,6 +41,7 @@ export default function GlobalChatPanel({
   const [busy, setBusy] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [lastPrompt, setLastPrompt] = useState('');
+  const [isClosingArtifact, setIsClosingArtifact] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -112,8 +113,11 @@ export default function GlobalChatPanel({
     // Add user message
     addChatMessage({ role: 'user', content: prompt });
 
-    // Detect if user is requesting a rubric/artifact
-    const isRubricRequest = /\b(create|generate|make|build|design)\s+(a\s+)?(rubric|grading\s+criteria|assessment|evaluation)/i.test(prompt);
+    // Detect if user is requesting a rubric/artifact (stricter matching)
+    // Must have BOTH an action verb AND the word "rubric" explicitly
+    const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(prompt);
+    const hasRubricKeyword = /\brubric\b/i.test(prompt);
+    const isRubricRequest = hasActionVerb && hasRubricKeyword;
 
     try {
       // Create a placeholder for streaming response
@@ -132,11 +136,36 @@ export default function GlobalChatPanel({
 
       const fullText = response.text || streamingContent;
 
-      // Add final response
+      // Artifact detection - only look for properly formatted JSON
+      let artifact = null;
+
+      // Only look for JSON code blocks (don't try to extract from unstructured text)
+      const jsonMatch = fullText.match(/```json\s*\n([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.type === 'rubric' && parsed.criteria) {
+            artifact = parsed;
+            console.log('✅ Found structured rubric artifact');
+
+            // Set artifact if found
+            setGeneratingArtifact(true, artifact);
+            if (onArtifactGenerated) {
+              onArtifactGenerated(artifact);
+            }
+            console.log('📝 Artifact generated:', artifact);
+          }
+        } catch (e) {
+          console.warn('Failed to parse JSON block:', e);
+        }
+      }
+
+      // Add final response with artifact reference
       addChatMessage({
         role: 'assistant',
         content: fullText,
         engine: response.isReal ? 'gemini' : 'mock',
+        artifact: artifact, // Attach artifact to message
       });
 
       // Check for navigation commands
@@ -150,38 +179,9 @@ export default function GlobalChatPanel({
         });
       }
 
-      // Enhanced artifact detection - try multiple approaches
-      let artifact = null;
-
-      // 1. Look for properly formatted JSON artifact
-      const jsonMatch = fullText.match(/```json\s*\n([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1]);
-          if (parsed.type === 'rubric' && parsed.criteria) {
-            artifact = parsed;
-            console.log('✅ Found structured rubric artifact');
-          }
-        } catch (e) {
-          console.warn('Failed to parse JSON block:', e);
-        }
-      }
-
-      // 2. If rubric was requested but no valid artifact found, try to extract structured data
+      // If rubric was explicitly requested but not found, log a warning
       if (!artifact && isRubricRequest) {
-        console.log('🔍 Attempting to extract rubric from unstructured response...');
-        artifact = extractRubricFromText(fullText);
-      }
-
-      // Set artifact if found
-      if (artifact) {
-        setGeneratingArtifact(true, artifact);
-        if (onArtifactGenerated) {
-          onArtifactGenerated(artifact);
-        }
-        console.log('📝 Artifact generated:', artifact);
-      } else if (isRubricRequest) {
-        console.warn('⚠️ Rubric requested but could not extract artifact from response');
+        console.warn('⚠️ Rubric requested but AI did not provide properly formatted JSON');
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -382,6 +382,8 @@ export default function GlobalChatPanel({
   }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleHighlightTextAction, handleShowSourceAction, contextData, busy, setBusy]);
 
   // Helper function to extract rubric from unstructured text
+  // DEPRECATED: No longer used - we now require explicit JSON formatting
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function extractRubricFromText(text: string): any | null {
     try {
       console.log('📝 Attempting to extract rubric from text (length:', text.length, ')');
@@ -529,7 +531,10 @@ export default function GlobalChatPanel({
     // Add user message
     addChatMessage({ role: 'user', content: suggestion });
 
-    const isRubricRequest = /\b(create|generate|make|build|design)\s+(a\s+)?(rubric|grading\s+criteria|assessment|evaluation)/i.test(suggestion);
+    // Use same strict rubric detection as handleSubmit
+    const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(suggestion);
+    const hasRubricKeyword = /\brubric\b/i.test(suggestion);
+    const isRubricRequest = hasActionVerb && hasRubricKeyword;
 
     try {
       let streamingContent = '';
@@ -544,10 +549,30 @@ export default function GlobalChatPanel({
 
       const fullText = response.text || streamingContent;
 
+      // Handle artifacts - only look for properly formatted JSON
+      let artifact = null;
+      const jsonMatch = fullText.match(/```json\s*\n([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          if (parsed.type === 'rubric' && parsed.criteria) {
+            artifact = parsed;
+
+            setGeneratingArtifact(true, artifact);
+            if (onArtifactGenerated) {
+              onArtifactGenerated(artifact);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to parse JSON block:', e);
+        }
+      }
+
       addChatMessage({
         role: 'assistant',
         content: fullText,
         engine: response.isReal ? 'gemini' : 'mock',
+        artifact: artifact, // Attach artifact to message
       });
 
       // Handle navigation commands
@@ -561,29 +586,8 @@ export default function GlobalChatPanel({
         });
       }
 
-      // Handle artifacts
-      let artifact = null;
-      const jsonMatch = fullText.match(/```json\s*\n([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1]);
-          if (parsed.type === 'rubric' && parsed.criteria) {
-            artifact = parsed;
-          }
-        } catch (e) {
-          console.warn('Failed to parse JSON block:', e);
-        }
-      }
-
       if (!artifact && isRubricRequest) {
-        artifact = extractRubricFromText(fullText);
-      }
-
-      if (artifact) {
-        setGeneratingArtifact(true, artifact);
-        if (onArtifactGenerated) {
-          onArtifactGenerated(artifact);
-        }
+        console.warn('⚠️ Rubric requested but AI did not provide properly formatted JSON');
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -612,14 +616,18 @@ export default function GlobalChatPanel({
         zIndex: 1000,
       }
     : {
+        position: 'fixed',
+        right: 0,
+        top: 0,
+        bottom: 0,
         width: `${expandedWidth}px`,
-        flexShrink: 0,
+        zIndex: 50, // Higher than table overflow menus
       };
 
   return (
     <div
       ref={panelRef}
-      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${isOverlay ? 'shadow-2xl rounded-lg border' : ''} h-full`}
+      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${isOverlay ? 'shadow-2xl rounded-lg border' : ''} ${isOverlay ? '' : 'h-full'}`}
       style={panelStyle}
     >
       {/* Resize handle (only in shrink mode) */}
@@ -632,7 +640,7 @@ export default function GlobalChatPanel({
       )}
 
       {/* Chat Section */}
-      <div className={`flex flex-col min-h-0 ${chat.isGeneratingArtifact ? 'w-1/2 border-r' : 'flex-1'}`}>
+      <div className={`flex flex-col min-h-0 transition-all duration-300 ease-in-out ${chat.isGeneratingArtifact ? 'w-2/5 border-r' : 'flex-1'}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b bg-gray-50">
         <div className="flex items-center gap-2">
@@ -668,6 +676,7 @@ export default function GlobalChatPanel({
           if (msg.role === 'assistant' && parsedContent.actions.length === 0) {
             parsedContent = ensureActionButtons(parsedContent, {
               prompt: lastPrompt,
+              screen: contextData?.screen,
               similarityScore: contextData?.similarityScore,
               matchCards: contextData?.matchCards,
             });
@@ -677,35 +686,49 @@ export default function GlobalChatPanel({
             <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
               <div
                 className={
-                  'max-w-[85%] rounded px-3 py-2 text-sm ' +
+                  'max-w-[85%] rounded text-sm overflow-hidden ' +
                   (msg.role === 'user'
-                    ? 'bg-blue-600 text-white whitespace-pre-wrap'
+                    ? 'bg-blue-600 text-white'
                     : msg.role === 'system'
-                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs'
+                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
                     : 'bg-white border')
                 }
               >
-                {msg.role === 'assistant' && msg.engine === 'gemini' && (
-                  <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
-                )}
-                {msg.role === 'user' ? (
-                  parsedContent.text
-                ) : (
-                  <Markdown text={parsedContent.text} />
-                )}
+                {/* Message content with padding */}
+                <div className={msg.role === 'user' ? 'px-3 py-2 whitespace-pre-wrap' : 'px-3 py-2'}>
+                  {msg.role === 'assistant' && msg.engine === 'gemini' && (
+                    <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
+                  )}
+                  {msg.role === 'user' ? (
+                    parsedContent.text
+                  ) : (
+                    <Markdown text={parsedContent.text} />
+                  )}
 
-                {/* Render action buttons if present */}
-                {parsedContent.actions.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {parsedContent.actions.map((action, idx) => (
-                      <ChatActionButton
-                        key={idx}
-                        action={action}
-                        onAction={handleChatAction}
-                        disabled={busy}
-                      />
-                    ))}
-                  </div>
+                  {/* Render action buttons if present */}
+                  {parsedContent.actions.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {parsedContent.actions.map((action, idx) => (
+                        <ChatActionButton
+                          key={idx}
+                          action={action}
+                          onAction={handleChatAction}
+                          disabled={busy}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Render "View Artifact" button if message has an artifact - full width at bottom */}
+                {msg.artifact && (
+                  <button
+                    onClick={() => setGeneratingArtifact(true, msg.artifact)}
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all border-t border-blue-400"
+                  >
+                    <span className="text-base">📝</span>
+                    <span>View Artifact</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -772,12 +795,19 @@ export default function GlobalChatPanel({
       {/* End of Chat Section */}
 
       {/* Artifact Preview Section */}
-      {chat.isGeneratingArtifact && chat.currentArtifact && (
-        <div className="w-1/2 flex flex-col bg-gray-50">
+      {(chat.isGeneratingArtifact || isClosingArtifact) && chat.currentArtifact && (
+        <div className={`w-3/5 flex flex-col bg-gray-50 ${isClosingArtifact ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
           <div className="flex items-center justify-between p-3 border-b bg-white">
             <h3 className="font-semibold text-sm">📝 Generated Artifact</h3>
             <button
-              onClick={() => setGeneratingArtifact(false)}
+              onClick={() => {
+                setIsClosingArtifact(true);
+                // Wait for animation to complete before actually closing
+                setTimeout(() => {
+                  setGeneratingArtifact(false);
+                  setIsClosingArtifact(false);
+                }, 300); // Match animation duration
+              }}
               className="text-xs text-gray-600 hover:text-gray-800"
             >
               Close
@@ -787,13 +817,67 @@ export default function GlobalChatPanel({
             <ArtifactPreview artifact={chat.currentArtifact} />
           </div>
           <div className="border-t p-3 bg-white flex gap-2">
-            <button className="flex-1 px-3 py-2 border rounded text-sm hover:bg-gray-50">
+            <button
+              onClick={() => {
+                // TODO: Implement edit functionality - navigate to rubric creator
+                console.log('Edit rubric:', chat.currentArtifact);
+              }}
+              className="flex-1 px-3 py-2 border rounded text-sm hover:bg-gray-50"
+            >
               Edit
             </button>
-            <button className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+            <button
+              onClick={() => {
+                if (chat.currentArtifact?.type === 'rubric') {
+                  const rubric = {
+                    id: `rubric-${Date.now()}`,
+                    title: chat.currentArtifact.title || 'Untitled Rubric',
+                    type: chat.currentArtifact.layout || 'weighted',
+                    criteria: chat.currentArtifact.criteria || [],
+                    scales: chat.currentArtifact.scales || [],
+                    createdAt: new Date().toISOString(),
+                    lastModified: new Date().toISOString(),
+                  };
+
+                  // Add to rubrics list
+                  useStore.setState((state) => ({
+                    rubrics: [...state.rubrics, rubric]
+                  }));
+
+                  // Save to localStorage
+                  useStore.getState().saveRubrics();
+
+                  // Show success message
+                  addChatMessage({
+                    role: 'system',
+                    content: `✅ Rubric "${rubric.title}" saved successfully!`,
+                  });
+
+                  console.log('Saved rubric:', rubric);
+                }
+              }}
+              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
               Save to Rubrics
             </button>
-            <button className="px-3 py-2 border rounded text-sm hover:bg-gray-50">
+            <button
+              onClick={() => {
+                if (chat.currentArtifact) {
+                  // Export as JSON
+                  const dataStr = JSON.stringify(chat.currentArtifact, null, 2);
+                  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                  const url = URL.createObjectURL(dataBlob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `${chat.currentArtifact.title || 'rubric'}-${Date.now()}.json`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+
+                  console.log('Exported rubric:', chat.currentArtifact);
+                }
+              }}
+              className="px-3 py-2 border rounded text-sm hover:bg-gray-50"
+            >
               Export
             </button>
           </div>

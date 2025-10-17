@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 type MarkdownProps = {
   text: string;
@@ -77,8 +77,46 @@ function splitIntoBlocks(text: string): TextBlock[] {
 }
 
 function Block({ block }: { block: TextBlock }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   switch (block.type) {
     case 'code':
+      const isJson = block.language === 'json';
+      const shouldCollapse = isJson && block.content.length > 300; // Collapse long JSON blocks
+
+      if (shouldCollapse) {
+        return (
+          <div className="rounded bg-gray-900 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+              <span className="text-xs text-gray-400 font-mono">
+                {block.language || 'code'}
+              </span>
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+              >
+                {isExpanded ? (
+                  <>
+                    <span>▼</span>
+                    <span>Collapse</span>
+                  </>
+                ) : (
+                  <>
+                    <span>▶</span>
+                    <span>Expand</span>
+                  </>
+                )}
+              </button>
+            </div>
+            {isExpanded && (
+              <pre className="text-gray-100 p-3 overflow-auto max-h-96">
+                <code>{block.content}</code>
+              </pre>
+            )}
+          </div>
+        );
+      }
+
       return (
         <pre className="rounded bg-gray-900 text-gray-100 p-3 overflow-auto">
           <code>{block.content}</code>
