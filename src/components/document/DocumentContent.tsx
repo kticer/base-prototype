@@ -16,6 +16,7 @@ interface DocumentContentProps {
   wordCount: number;
   paperOffset: number;
   showComments: boolean;
+  scale: number;
 }
 
 export function DocumentContent({
@@ -30,6 +31,7 @@ export function DocumentContent({
   wordCount,
   paperOffset,
   showComments,
+  scale,
 }: DocumentContentProps) {
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -59,9 +61,12 @@ export function DocumentContent({
     return () => observer.disconnect();
   }, [pages, onCurrentPageChange]);
 
+  // Calculate the combined transform for zoom and scale
+  const combinedScale = (zoom / 100) * scale;
+
   return (
     <div
-      className="flex-1 overflow-auto p-3 md:p-6 bg-gray-50 scroll-smooth"
+      className="absolute inset-0 overflow-auto p-3 md:p-6 bg-gray-50 scroll-smooth"
       style={{
         paddingRight: showComments ? '340px' : '24px',
       }}
@@ -70,7 +75,8 @@ export function DocumentContent({
         <div
           className="max-w-[872px] w-full relative transition-transform duration-300 ease-in-out"
           style={{
-            transform: `translateX(${paperOffset}px)`,
+            transform: `translateX(${paperOffset}px) scale(${combinedScale})`,
+            transformOrigin: 'top center',
           }}
         >
           {pages.map((pageContent, i) => (
@@ -95,9 +101,6 @@ export function DocumentContent({
               highlights={doc.highlights.filter((h) => h.page === i + 1)}
               matchCards={doc.matchCards}
               className="w-full max-w-[816px] min-h-[1056px] bg-white shadow-md rounded mb-4 px-6 md:px-12 py-8 md:py-16 transition-opacity duration-300 opacity-100 leading-[32px]"
-              style={{
-                transform: `scale(${zoom / 100})`,
-              }}
               data-page-number={i + 1}
               ref={(el) => {
                 pageRefs.current[i] = el;
@@ -118,6 +121,7 @@ export function DocumentContent({
             totalPages={pages.length}
             zoom={zoom}
             wordCount={wordCount}
+            scale={scale}
             onZoomIn={onZoomIn}
             onZoomOut={onZoomOut}
             onZoomReset={onZoomReset}

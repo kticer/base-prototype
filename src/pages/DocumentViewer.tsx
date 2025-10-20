@@ -80,7 +80,9 @@ export default function DocumentViewer() {
   // const resetToDefault = useStore((state) => state.resetToDefault); // Will be used for reset button
 
   const { selectedSourceId, selectedMatchIndex } = useNavigation();
-  const similarityScore = useSimilarityScore(doc?.matchCards ?? []);
+  // Don't use useSimilarityScore - it sums match card percentages incorrectly
+  // Instead, we'll get the actual similarity from folder_structure.json
+  const [actualSimilarity, setActualSimilarity] = useState<number | null>(null);
   const { tabState, setTabState, selectedCommentId, sidebarVisible, toggleSidebar, chat, openChat } =
     useStore();
   const { toasts, showToast, hideToast } = useToast();
@@ -89,9 +91,11 @@ export default function DocumentViewer() {
 
   // Calculate responsive layout - always show comment column for universal commenting
   const showCommentColumn = true; // Enable comments on all tabs
-  const { paperOffset, showComments } = useResponsiveLayout(
+  const { paperOffset, showComments, scale } = useResponsiveLayout(
     showCommentColumn,
     sidebarVisible,
+    chat.panelWidth,
+    chat.displayMode
   );
 
   // Handle comment highlight cleanup when comments are deleted
@@ -269,6 +273,31 @@ export default function DocumentViewer() {
         // Load document into layered data system
         await storeLoadDocument(validatedId, validatedData);
 
+        // Load actual similarity score from folder_structure.json
+        try {
+          const folderRes = await fetch('/data/folder_structure.json');
+          if (folderRes.ok) {
+            const folderData = await folderRes.json();
+            const findSimilarity = (items: any[]): number | null => {
+              for (const item of items) {
+                if (item.type === 'document' && item.id === validatedId) {
+                  return typeof item.similarity === 'number' ? item.similarity : null;
+                }
+                if (item.type === 'folder' && item.children) {
+                  const found = findSimilarity(item.children);
+                  if (found !== null) return found;
+                }
+              }
+              return null;
+            };
+            const similarity = findSimilarity(folderData);
+            setActualSimilarity(similarity);
+            console.log(`📊 Loaded similarity score: ${similarity}%`);
+          }
+        } catch (err) {
+          console.warn('Failed to load similarity from folder_structure.json:', err);
+        }
+
         setLoading(false);
 
         console.log(
@@ -357,7 +386,7 @@ export default function DocumentViewer() {
       title: doc.title,
       author: doc.author,
     },
-    similarityScore,
+    similarityScore: actualSimilarity ?? 0, // Use actual similarity from folder_structure.json
     wordCount,
     matchCards: doc.matchCards?.map(card => ({
       id: card.id,
@@ -371,46 +400,95 @@ export default function DocumentViewer() {
       academicIntegrityIssue: (card as any).academicIntegrityIssue,
       issueDescription: (card as any).issueDescription,
     })),
+    // Add explicit source name to ID mapping for easier reference
+    sourceIdMap: doc.matchCards?.reduce((map, card) => {
+      map[(card as any).sourceName] = card.id;
+      return map;
+    }, {} as Record<string, string>),
     analysisMetadata: (doc as any).analysisMetadata,
     currentPage,
     primaryTab,
+    // Include page content for better context
+    pages: doc.pages ? {
+      current: doc.pages[currentPage - 1] || null,
+      first: doc.pages[0] || null,
+      last: doc.pages[doc.pages.length - 1] || null,
+      total: doc.pages.length,
+    } : null,
   } : null;
 
-  // Generate context-aware prompt suggestions
+  // Generate context-aware prompt suggestions with enhanced context
   const promptSuggestions = React.useMemo(() => {
     if (!doc) return [];
 
     const suggestions = [];
 
-    // Always offer similarity explanation
-    if (similarityScore > 0) {
-      suggestions.push("Explain this similarity score");
+    // Always offer similarity explanation if we have a similarity score
+    if (actualSimilarity !== null && actualSimilarity > 0) {
+      const topSource = doc.matchCards && doc.matchCards.length > 0
+        ? doc.matchCards.reduce((max, card) =>
+            ((card as any).similarityPercent > (max as any).similarityPercent ? card : max), doc.matchCards[0])
+        : null;
+
+      suggestions.push({
+        label: "Explain this similarity score",
+        contextEnhancement: `The document has a ${actualSimilarity}% similarity score. ${topSource ? `The largest match is a ${(topSource as any).similarityPercent}% match to "${(topSource as any).sourceName}" (ID: ${topSource.id}) which is ${(topSource as any).isCited ? 'cited' : 'NOT cited'}.` : ''} Focus on what this score means in academic integrity terms, identify the primary driver of the score, and distinguish between cited and uncited matches. If there are uncited sources making up significant portions, note the academic integrity concern. When referring to sources, always use their exact ID from the TopSources context (e.g., if discussing "${(topSource as any).sourceName}", use ID "${topSource.id}").`,
+      });
     }
 
-    // Offer thesis identification
-    suggestions.push("Identify the thesis statement");
+    // Offer thesis identification with page context
+    const firstPageWordCount = doc.pages && doc.pages[0] ? doc.pages[0].content.split(/\s+/).length : 0;
+    const hasCitations = doc.matchCards && doc.matchCards.some((card: any) => card.isCited);
+    const citationCount = doc.matchCards ? doc.matchCards.filter((card: any) => card.isCited).length : 0;
+
+    suggestions.push({
+      label: "Identify the thesis statement",
+      contextEnhancement: `Analyze the first page content (approximately ${firstPageWordCount} words) to identify the thesis statement.
+
+IMPORTANT CONTEXT:
+- Document Title: "${doc.title}" (provides clues about the topic and scope)
+- Author: ${doc.author}
+- Total Pages: ${doc.pages?.length || 'unknown'}
+- Essay Type: ${hasCitations ? `Research essay with ${citationCount} cited sources` : 'Personal/expository essay without formal citations'}
+- Word Count: ~${wordCount} words (${wordCount < 800 ? 'short essay' : wordCount < 1500 ? 'medium essay' : 'long essay'})
+
+THESIS IDENTIFICATION GUIDELINES:
+1. The thesis is typically in the first page, often in the first 1-3 paragraphs
+2. For essays titled with a question (like "Why are there so many Oreo Flavors?"), the thesis often directly answers that question
+3. For research essays with citations, the thesis usually previews the argument and may mention key evidence
+4. For expository essays, the thesis states the main point or controlling idea
+5. Look for signals: "This essay will...", "I argue that...", "This paper explores...", or a clear declarative statement of the main claim
+6. The thesis should be specific, debatable (for argumentative essays), or clearly focused (for expository essays)
+
+YOUR TASK:
+- Quote the exact thesis statement you identify
+- Explain WHY you believe this is the thesis (what makes it the central claim?)
+- Note where it appears (paragraph number, approximate location)
+- If the thesis is implied rather than explicit, explain the main argument in your own words`,
+    });
 
     // Offer source analysis if there are sources
     if (doc.matchCards && doc.matchCards.length > 0) {
-      suggestions.push("List the primary sources cited");
+      const citedCount = doc.matchCards.filter((card: any) => card.isCited).length;
+      const uncitedCount = doc.matchCards.length - citedCount;
+
+      suggestions.push({
+        label: "List the primary sources cited",
+        contextEnhancement: `The document has ${doc.matchCards.length} matched sources (${citedCount} cited, ${uncitedCount} uncited). Review the last page content which likely contains the Works Cited or References section. List the primary sources that are properly cited, and note any major sources that appear to be missing from the citations.`,
+      });
     }
 
-    // Offer AI writing analysis
-    suggestions.push("Analyze this paper for AI writing");
+    // Offer AI writing analysis with content context
+    suggestions.push({
+      label: "Analyze this paper for AI writing",
+      contextEnhancement: `Analyze the writing style, vocabulary, sentence structure, and flow of the current page content. Look for patterns that might indicate AI-generated text such as: overly formal or consistent tone, unusual word choices, repetitive sentence structures, lack of personal voice, or overly perfect grammar. Be specific about what patterns you observe. After analysis, navigate to the AI Writing tab using [ACTION:navigate|View AI Writing report|AI Writing].`,
+    });
 
     return suggestions;
-  }, [doc, similarityScore]);
+  }, [doc, actualSimilarity]);
 
   if (loading) return <div className="p-6">Loading document...</div>;
   if (!doc) return <div className="p-6">Document not found</div>;
-
-  // Calculate padding for document when chat is open in shrink mode
-  const chatPadding = (() => {
-    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
-    const baseWidth = chat.panelWidth;
-    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
-    return expandedWidth;
-  })();
 
   return (
     <div className="flex flex-col w-full h-screen relative">
@@ -441,37 +519,42 @@ export default function DocumentViewer() {
       />
 
       {/* Main Content Container */}
-      <div
-        className="flex flex-1 overflow-hidden transition-all duration-300"
-        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
-      >
+      <div className="flex flex-1 overflow-hidden">
         {/* Document Content Area */}
-        <div className="flex flex-1 overflow-hidden relative">
-        <DocumentContent
-          doc={doc}
-          pages={pages}
-          zoom={zoom}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onZoomReset={handleZoomReset}
-          currentPage={currentPage}
-          onCurrentPageChange={setCurrentPage}
-          wordCount={wordCount}
-          paperOffset={paperOffset}
-          showComments={showComments}
-        />
-
-        {selectionState && (
-          <FloatingActionBar
-            position={selectionState.position}
-            actions={selectionActions}
-            onDismiss={dismissSelection}
+        <div className="flex-1 relative">
+          <DocumentContent
+            doc={doc}
+            pages={pages}
+            zoom={zoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onZoomReset={handleZoomReset}
+            currentPage={currentPage}
+            onCurrentPageChange={setCurrentPage}
+            wordCount={wordCount}
+            paperOffset={paperOffset}
+            showComments={showComments}
+            scale={scale}
           />
-        )}
 
+          {selectionState && (
+            <FloatingActionBar
+              position={selectionState.position}
+              actions={selectionActions}
+              onDismiss={dismissSelection}
+            />
+          )}
+
+          <SidebarToggleButton
+            sidebarVisible={sidebarVisible}
+            onToggle={toggleSidebar}
+          />
+        </div>
+
+        {/* Sidebar */}
         <DocumentSidebar
           sidebarVisible={sidebarVisible}
-          similarityScore={similarityScore}
+          similarityScore={actualSimilarity ?? 0}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
           primaryTab={primaryTab}
@@ -482,17 +565,24 @@ export default function DocumentViewer() {
           selection={selectionState ? { text: selectionState.text, page: selectionState.pageNumber } : null}
         />
 
-        <SidebarToggleButton
-          sidebarVisible={sidebarVisible}
-          onToggle={toggleSidebar}
-        />
-        </div>
-        {/* End of Document Content Area */}
+        {/* Global Chat Panel - In shrink mode, positioned after sidebar */}
+        {chatContext && chat.displayMode === 'shrink' && (
+          <GlobalChatPanel
+            contextData={chatContext}
+            promptSuggestions={promptSuggestions}
+            onNavigate={(target) => {
+              // Handle navigation commands from chat
+              if (target === 'Similarity' || target === 'AI Writing' || target === 'Flags' || target === 'Feedback' || target === 'Grading') {
+                setPrimaryTab(target);
+              }
+            }}
+          />
+        )}
       </div>
       {/* End of Main Content Container */}
 
-      {/* Global Chat Panel - Fixed positioned */}
-      {chatContext && (
+      {/* Global Chat Panel - In overlay mode, fixed positioned outside container */}
+      {chatContext && chat.displayMode === 'overlay' && (
         <GlobalChatPanel
           contextData={chatContext}
           promptSuggestions={promptSuggestions}

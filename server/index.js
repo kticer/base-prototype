@@ -164,9 +164,30 @@ app.post('/api/chat', async (req, res) => {
         '**Available Action Buttons (USE THESE FREQUENTLY):**',
         '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
         '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
-        '- [ACTION:add_comment|Add a comment about this|text] - Use to add a pre-written comment',
+        '- [ACTION:add_comment|Add this inline comment|text] - Use to add an inline comment to a specific passage',
+        '- [ACTION:add_summary_comment|Add this summary comment|text] - Use to add an overall summary comment for the entire essay',
         '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
         '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
+        '',
+        '**IMPORTANT: Two Types of Comments:**',
+        '1. INLINE COMMENTS - For specific passages/issues in the paper',
+        '   - Use [ACTION:add_comment|...] for these',
+        '   - Examples: "This paragraph lacks a clear topic sentence", "Cite this source", "This evidence doesn\'t support your claim"',
+        '   - These appear next to the relevant text in the document',
+        '',
+        '2. SUMMARY COMMENTS - For overall feedback on the entire essay',
+        '   - Use [ACTION:add_summary_comment|...] for these',
+        '   - Examples: "Strong thesis and well-organized argument", "Good use of evidence but needs stronger conclusion", "Excellent analysis overall"',
+        '   - These go in the Summary tab of the Feedback panel',
+        '   - Use for holistic/overall feedback, not specific passages',
+        '',
+        '**CRITICAL: When using action buttons with matchCardId:**',
+        '- The context includes a SourceNameToIdMap object that maps source names directly to their IDs',
+        '- Example: {"The Kitchn": "mc3", "Bon Appetit": "mc1", "Climate.gov NOAA": "mc2"}',
+        '- To reference a source, look up its name in SourceNameToIdMap to get the correct ID',
+        '- If discussing "The Kitchn", look up SourceNameToIdMap["The Kitchn"] to get "mc3", then use [ACTION:show_source|View The Kitchn|mc3]',
+        '- You can also check the TopSources list where each source has an "id" field',
+        '- NEVER guess or use a different source\'s ID - always look up the exact match',
         '',
         '**Example Response Pattern (FOLLOW THIS):**',
         'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
@@ -179,6 +200,35 @@ app.post('/api/chat', async (req, res) => {
         'You are helping manage the submissions inbox.',
         'You have access to submission statistics, similarity scores, and document lists.',
         'Help analyze trends, identify high-similarity submissions, and provide grading insights.',
+        '',
+        '**CRITICAL: Use the Metrics object for instant, accurate answers:**',
+        'The context includes a Metrics object with pre-computed statistics:',
+        '- metrics.total: total number of submissions',
+        '- metrics.graded: number of submissions that have been graded',
+        '- metrics.ungraded: number of submissions that still need grading',
+        '- metrics.highSimilarity: count of submissions with >40% similarity',
+        '- metrics.mediumSimilarity: count of submissions with 20-40% similarity',
+        '- metrics.lowSimilarity: count of submissions with <20% similarity',
+        '- metrics.recentSubmissions: count of submissions from last 7 days',
+        '- metrics.avgSimilarity: average similarity across all submissions',
+        '',
+        'ALWAYS use these pre-computed metrics instead of counting the submissions array yourself.',
+        'Example: When asked "how many need grading?", answer with metrics.ungraded.',
+        '',
+        '**IMPORTANT: For inbox queries about submissions, generate data tables as artifacts:**',
+        'When asked to "show submissions" or "list documents" with certain criteria (high similarity, missing grades, etc.), generate a structured table artifact:',
+        '```json',
+        '{',
+        '  "type": "table",',
+        '  "title": "High Similarity Submissions",',
+        '  "columns": ["Student", "Title", "Similarity", "Grade Status"],',
+        '  "rows": [',
+        '    ["Student Name", "Paper Title", "45%", "Not Graded"],',
+        '    ["Student Name 2", "Paper Title 2", "38%", "Graded"]',
+        '  ]',
+        '}',
+        '```',
+        'DO NOT generate rubrics for inbox queries - only generate tables/reports with submission data.',
       ],
       'settings': [
         'You are helping configure assignment settings.',
@@ -227,13 +277,25 @@ app.post('/api/chat', async (req, res) => {
     const light = lighten(context);
     const ctxText = [
       `Doc: ${JSON.stringify(light.doc)}`,
+      `Word Count: ${light.wordCount || 'unknown'}`,
+      `Similarity Score: ${light.similarityScore !== undefined ? light.similarityScore + '%' : 'unknown'}`,
       `Selection: ${light.selection ? JSON.stringify(light.selection) : 'none'}`,
       `FocusText: ${JSON.stringify(light.focusText)}`,
       `Highlights: ${JSON.stringify(light.visibleHighlights)}`,
       `TopSources: ${JSON.stringify(light.matchCards)}`,
+      Object.keys(light.sourceIdMap).length > 0 ? `SourceNameToIdMap: ${JSON.stringify(light.sourceIdMap)}` : '',
       `Primary Tab: ${context?.primaryTab || 'Similarity'}`,
       `Current Page: ${context?.currentPage || 1}`,
-    ].join('\n');
+      // Page content for better analysis
+      light.pages?.current ? `\nCurrent Page Content (Page ${light.pages.current.pageNumber}):\n${light.pages.current.content}` : '',
+      light.pages?.first && light.pages.first.pageNumber !== light.pages.current?.pageNumber ? `\nFirst Page Content (Page ${light.pages.first.pageNumber}):\n${light.pages.first.content}` : '',
+      light.pages?.last && light.pages.last.pageNumber !== light.pages.current?.pageNumber && light.pages.last.pageNumber !== light.pages.first?.pageNumber ? `\nLast Page Content (Page ${light.pages.last.pageNumber}):\n${light.pages.last.content}` : '',
+      // Inbox-specific context with computed metrics
+      light.metrics ? `Metrics: ${JSON.stringify(light.metrics)}` : '',
+      light.submissions?.length > 0 ? `Submissions: ${JSON.stringify(light.submissions)}` : '',
+      light.totalSubmissions !== undefined ? `Total Submissions: ${light.totalSubmissions}` : '',
+      light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
+    ].filter(Boolean).join('\n');
 
     // Few-shot example showing proper action button usage
     const fewShotExample = screenType === 'document-viewer' ? `
@@ -252,10 +314,27 @@ You can also: [ACTION:highlight_text|Show me the issue|mc1]
 Now respond to the actual user query below, making sure to include action buttons in your response:
 ` : '';
 
-    const fullPrompt = [sys, '', ctxText, fewShotExample, `User: ${prompt}`].join('\n');
+    // Build conversation history for multi-turn chat
+    const conversationHistory = context?.conversationHistory || [];
+    const chatHistory = conversationHistory
+      .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }],
+      }));
 
-    log.debug('chat:invoke_model', { id: req.id, promptLen: fullPrompt.length });
-    const result = await model.generateContent(fullPrompt);
+    // Create system message with context
+    const systemPrompt = [sys, '', ctxText, fewShotExample].join('\n');
+
+    log.debug('chat:invoke_model', { id: req.id, historyLen: chatHistory.length, systemPromptLen: systemPrompt.length });
+
+    // Use Gemini's chat interface with history
+    const chat = model.startChat({
+      history: chatHistory,
+      systemInstruction: systemPrompt,
+    });
+
+    const result = await chat.sendMessage(prompt);
     const text = result?.response?.text?.() ?? '';
     log.info('chat:success', { id: req.id, textLen: text.length });
     return res.json({ text });
@@ -321,9 +400,30 @@ app.post('/api/chat/stream', async (req, res) => {
         '**Available Action Buttons (USE THESE FREQUENTLY):**',
         '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
         '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
-        '- [ACTION:add_comment|Add a comment about this|text] - Use to add a pre-written comment',
+        '- [ACTION:add_comment|Add this inline comment|text] - Use to add an inline comment to a specific passage',
+        '- [ACTION:add_summary_comment|Add this summary comment|text] - Use to add an overall summary comment for the entire essay',
         '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
         '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
+        '',
+        '**IMPORTANT: Two Types of Comments:**',
+        '1. INLINE COMMENTS - For specific passages/issues in the paper',
+        '   - Use [ACTION:add_comment|...] for these',
+        '   - Examples: "This paragraph lacks a clear topic sentence", "Cite this source", "This evidence doesn\'t support your claim"',
+        '   - These appear next to the relevant text in the document',
+        '',
+        '2. SUMMARY COMMENTS - For overall feedback on the entire essay',
+        '   - Use [ACTION:add_summary_comment|...] for these',
+        '   - Examples: "Strong thesis and well-organized argument", "Good use of evidence but needs stronger conclusion", "Excellent analysis overall"',
+        '   - These go in the Summary tab of the Feedback panel',
+        '   - Use for holistic/overall feedback, not specific passages',
+        '',
+        '**CRITICAL: When using action buttons with matchCardId:**',
+        '- The context includes a SourceNameToIdMap object that maps source names directly to their IDs',
+        '- Example: {"The Kitchn": "mc3", "Bon Appetit": "mc1", "Climate.gov NOAA": "mc2"}',
+        '- To reference a source, look up its name in SourceNameToIdMap to get the correct ID',
+        '- If discussing "The Kitchn", look up SourceNameToIdMap["The Kitchn"] to get "mc3", then use [ACTION:show_source|View The Kitchn|mc3]',
+        '- You can also check the TopSources list where each source has an "id" field',
+        '- NEVER guess or use a different source\'s ID - always look up the exact match',
         '',
         '**Example Response Pattern (FOLLOW THIS):**',
         'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
@@ -336,6 +436,35 @@ app.post('/api/chat/stream', async (req, res) => {
         'You are helping manage the submissions inbox.',
         'You have access to submission statistics, similarity scores, and document lists.',
         'Help analyze trends, identify high-similarity submissions, and provide grading insights.',
+        '',
+        '**CRITICAL: Use the Metrics object for instant, accurate answers:**',
+        'The context includes a Metrics object with pre-computed statistics:',
+        '- metrics.total: total number of submissions',
+        '- metrics.graded: number of submissions that have been graded',
+        '- metrics.ungraded: number of submissions that still need grading',
+        '- metrics.highSimilarity: count of submissions with >40% similarity',
+        '- metrics.mediumSimilarity: count of submissions with 20-40% similarity',
+        '- metrics.lowSimilarity: count of submissions with <20% similarity',
+        '- metrics.recentSubmissions: count of submissions from last 7 days',
+        '- metrics.avgSimilarity: average similarity across all submissions',
+        '',
+        'ALWAYS use these pre-computed metrics instead of counting the submissions array yourself.',
+        'Example: When asked "how many need grading?", answer with metrics.ungraded.',
+        '',
+        '**IMPORTANT: For inbox queries about submissions, generate data tables as artifacts:**',
+        'When asked to "show submissions" or "list documents" with certain criteria (high similarity, missing grades, etc.), generate a structured table artifact:',
+        '```json',
+        '{',
+        '  "type": "table",',
+        '  "title": "High Similarity Submissions",',
+        '  "columns": ["Student", "Title", "Similarity", "Grade Status"],',
+        '  "rows": [',
+        '    ["Student Name", "Paper Title", "45%", "Not Graded"],',
+        '    ["Student Name 2", "Paper Title 2", "38%", "Graded"]',
+        '  ]',
+        '}',
+        '```',
+        'DO NOT generate rubrics for inbox queries - only generate tables/reports with submission data.',
       ],
       'settings': [
         'You are helping configure assignment settings.',
@@ -384,13 +513,25 @@ app.post('/api/chat/stream', async (req, res) => {
     const light = lighten(context);
     const ctxText = [
       `Doc: ${JSON.stringify(light.doc)}`,
+      `Word Count: ${light.wordCount || 'unknown'}`,
+      `Similarity Score: ${light.similarityScore !== undefined ? light.similarityScore + '%' : 'unknown'}`,
       `Selection: ${light.selection ? JSON.stringify(light.selection) : 'none'}`,
       `FocusText: ${JSON.stringify(light.focusText)}`,
       `Highlights: ${JSON.stringify(light.visibleHighlights)}`,
       `TopSources: ${JSON.stringify(light.matchCards)}`,
+      Object.keys(light.sourceIdMap).length > 0 ? `SourceNameToIdMap: ${JSON.stringify(light.sourceIdMap)}` : '',
       `Primary Tab: ${context?.primaryTab || 'Similarity'}`,
       `Current Page: ${context?.currentPage || 1}`,
-    ].join('\n');
+      // Page content for better analysis
+      light.pages?.current ? `\nCurrent Page Content (Page ${light.pages.current.pageNumber}):\n${light.pages.current.content}` : '',
+      light.pages?.first && light.pages.first.pageNumber !== light.pages.current?.pageNumber ? `\nFirst Page Content (Page ${light.pages.first.pageNumber}):\n${light.pages.first.content}` : '',
+      light.pages?.last && light.pages.last.pageNumber !== light.pages.current?.pageNumber && light.pages.last.pageNumber !== light.pages.first?.pageNumber ? `\nLast Page Content (Page ${light.pages.last.pageNumber}):\n${light.pages.last.content}` : '',
+      // Inbox-specific context with computed metrics
+      light.metrics ? `Metrics: ${JSON.stringify(light.metrics)}` : '',
+      light.submissions?.length > 0 ? `Submissions: ${JSON.stringify(light.submissions)}` : '',
+      light.totalSubmissions !== undefined ? `Total Submissions: ${light.totalSubmissions}` : '',
+      light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
+    ].filter(Boolean).join('\n');
 
     // Few-shot example showing proper action button usage
     const fewShotExample = screenType === 'document-viewer' ? `
@@ -409,11 +550,27 @@ You can also: [ACTION:highlight_text|Show me the issue|mc1]
 Now respond to the actual user query below, making sure to include action buttons in your response:
 ` : '';
 
-    const fullPrompt = [sys, '', ctxText, fewShotExample, `User: ${prompt}`].join('\n');
+    // Build conversation history for multi-turn chat
+    const conversationHistory = context?.conversationHistory || [];
+    const chatHistory = conversationHistory
+      .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }],
+      }));
 
-    log.debug('chat_stream:invoke_model', { id: req.id });
+    // Create system message with context
+    const systemPrompt = [sys, '', ctxText, fewShotExample].join('\n');
+
+    log.debug('chat_stream:invoke_model', { id: req.id, historyLen: chatHistory.length, systemPromptLen: systemPrompt.length });
     try {
-      const result = await model.generateContentStream(fullPrompt);
+      // Use Gemini's chat interface with history for streaming
+      const chat = model.startChat({
+        history: chatHistory,
+        systemInstruction: systemPrompt,
+      });
+
+      const result = await chat.sendMessageStream(prompt);
       for await (const chunk of result.stream) {
         const t = chunk.text();
         if (t) res.write(t);
@@ -421,9 +578,13 @@ Now respond to the actual user query below, making sure to include action button
       log.info('chat_stream:success', { id: req.id });
       res.end();
     } catch (err) {
-      // If streaming isn't supported for this model, fall back to non-streaming
+      // If streaming isn't supported for this model, fall back to non-streaming with history
       log.warn('chat_stream:fallback_to_nonstream', { id: req.id, error: err instanceof Error ? { message: err.message } : err });
-      const nonstream = await model.generateContent(fullPrompt);
+      const chat = model.startChat({
+        history: chatHistory,
+        systemInstruction: systemPrompt,
+      });
+      const nonstream = await chat.sendMessage(prompt);
       const text = nonstream?.response?.text?.() ?? '';
       res.write(text || '\n[Chat server] No content returned from Gemini.');
       res.end();
@@ -489,7 +650,7 @@ process.on('SIGTERM', () => {
 
 function lighten(ctx) {
   if (!ctx) return {};
-  const { doc, wordCount, similarityScore, matchCards, settings } = ctx;
+  const { doc, wordCount, similarityScore, matchCards, settings, submissions, totalSubmissions, avgSimilarity, metrics, pages, sourceIdMap } = ctx;
   return {
     doc: doc ? { id: doc.id, title: doc.title, author: doc.author } : null,
     wordCount,
@@ -504,6 +665,36 @@ function lighten(ctx) {
           matchCount: m.matchCount,
         }))
       : [],
+    sourceIdMap: sourceIdMap || {},
+    // Include page content for better analysis
+    pages: pages ? {
+      current: pages.current ? {
+        pageNumber: pages.current.pageNumber,
+        content: String(pages.current.content || '').slice(0, 8000), // Current page up to 8000 chars
+      } : null,
+      first: pages.first ? {
+        pageNumber: pages.first.pageNumber,
+        content: String(pages.first.content || '').slice(0, 4000), // First page (intro/thesis) up to 4000 chars
+      } : null,
+      last: pages.last ? {
+        pageNumber: pages.last.pageNumber,
+        content: String(pages.last.content || '').slice(0, 4000), // Last page (conclusion/works cited) up to 4000 chars
+      } : null,
+      total: pages.total,
+    } : null,
+    // Inbox context
+    metrics: metrics || undefined, // Computed metrics for instant answers
+    submissions: Array.isArray(submissions)
+      ? submissions.slice(0, 30).map(s => ({
+          id: s.id,
+          title: String(s.title || '').slice(0, 100),
+          author: String(s.author || '').slice(0, 50),
+          similarity: s.similarity,
+          grade: s.grade,
+        }))
+      : [],
+    totalSubmissions,
+    avgSimilarity,
     selection: settings?.selection ? { text: String(settings.selection.text || '').slice(0, 800), page: settings.selection.page } : undefined,
     focusText: Array.isArray(settings?.focusText)
       ? settings.focusText.slice(0, 3).map(p => ({ page: p.page, content: String(p.content || '').slice(0, 4000) }))

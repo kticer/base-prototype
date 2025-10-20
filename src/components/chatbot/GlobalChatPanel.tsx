@@ -10,8 +10,8 @@ import { ChatActionButton } from './ChatActionButton';
 interface GlobalChatPanelProps {
   /** Context-specific data to send to AI */
   contextData?: any;
-  /** Screen-specific prompt suggestions */
-  promptSuggestions?: string[];
+  /** Screen-specific prompt suggestions (can be strings or objects with context) */
+  promptSuggestions?: (string | { label: string; contextEnhancement: string })[];
   /** Callback when chat requests navigation */
   onNavigate?: (target: string) => void;
   /** Callback when artifact is generated */
@@ -33,6 +33,7 @@ export default function GlobalChatPanel({
     setGeneratingArtifact,
     handleDraftCommentAction,
     handleAddCommentAction,
+    handleAddSummaryCommentAction,
     handleHighlightTextAction,
     handleShowSourceAction,
   } = useStore();
@@ -42,6 +43,11 @@ export default function GlobalChatPanel({
   const [isResizing, setIsResizing] = useState(false);
   const [lastPrompt, setLastPrompt] = useState('');
   const [isClosingArtifact, setIsClosingArtifact] = useState(false);
+  const [messageFeedback, setMessageFeedback] = useState<Record<number, 'thumbsup' | 'thumbsdown'>>({});
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
+  const [showContextHelp, setShowContextHelp] = useState(false);
+  const [showFollowUps, setShowFollowUps] = useState<Record<number, boolean>>({});
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(true);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -51,6 +57,7 @@ export default function GlobalChatPanel({
 
   const currentScreen = chat.currentScreen;
   const messages = currentScreen ? chat.conversations[currentScreen].messages : [];
+  const isDocumentViewer = currentScreen === 'document-viewer';
   const isOverlay = chat.displayMode === 'overlay';
 
   // Auto-scroll to bottom when messages change
@@ -129,8 +136,14 @@ export default function GlobalChatPanel({
         ? `${prompt}\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`
         : prompt;
 
+      // Include conversation history (last 10 messages for context)
+      const conversationHistory = messages.slice(-10);
+
       // Use Gemini streaming API
-      const response = await askGeminiStream(enhancedPrompt, contextData, (chunk) => {
+      const response = await askGeminiStream(enhancedPrompt, {
+        ...contextData,
+        conversationHistory,
+      }, (chunk) => {
         streamingContent += chunk;
       });
 
@@ -144,11 +157,21 @@ export default function GlobalChatPanel({
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1]);
+          // Accept different artifact types
           if (parsed.type === 'rubric' && parsed.criteria) {
             artifact = parsed;
             console.log('✅ Found structured rubric artifact');
+          } else if (parsed.type === 'report' || parsed.type === 'table' || parsed.type === 'data') {
+            artifact = parsed;
+            console.log('✅ Found structured report/table artifact');
+          } else if (parsed.type) {
+            // Accept any structured artifact with a type field
+            artifact = parsed;
+            console.log('✅ Found structured artifact:', parsed.type);
+          }
 
-            // Set artifact if found
+          // Set artifact if found
+          if (artifact) {
             setGeneratingArtifact(true, artifact);
             if (onArtifactGenerated) {
               onArtifactGenerated(artifact);
@@ -185,9 +208,12 @@ export default function GlobalChatPanel({
       }
     } catch (error) {
       console.error('Chat error:', error);
+      const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
       addChatMessage({
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request.',
+        role: 'system',
+        content: isNetworkError
+          ? '❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n[ACTION:retry|Retry|' + prompt + ']'
+          : '❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n[ACTION:retry|Try Again|' + prompt + ']',
       });
     } finally {
       setBusy(false);
@@ -288,7 +314,19 @@ export default function GlobalChatPanel({
 
           addChatMessage({
             role: 'system',
-            content: '✅ Comment added to document.',
+            content: '✅ Inline comment added to document.',
+          });
+          break;
+        }
+
+        case 'add_summary_comment': {
+          // Payload contains the summary comment text
+          const text = action.payload || action.label;
+          handleAddSummaryCommentAction({ text });
+
+          addChatMessage({
+            role: 'system',
+            content: '✅ Summary comment added to Feedback panel.',
           });
           break;
         }
@@ -369,6 +407,19 @@ export default function GlobalChatPanel({
           break;
         }
 
+        case 'retry': {
+          // Retry with the original prompt
+          const originalPrompt = action.payload;
+          if (originalPrompt) {
+            setInput(originalPrompt);
+            // Auto-send after a brief delay
+            setTimeout(() => {
+              sendMessage();
+            }, 100);
+          }
+          break;
+        }
+
         default:
           console.warn('Unknown action type:', action.type);
       }
@@ -376,10 +427,10 @@ export default function GlobalChatPanel({
       console.error('Error handling chat action:', error);
       addChatMessage({
         role: 'system',
-        content: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `❌ **Action Error**\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or rephrase your request.`,
       });
     }
-  }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleHighlightTextAction, handleShowSourceAction, contextData, busy, setBusy]);
+  }, [addChatMessage, onNavigate, handleDraftCommentAction, handleAddCommentAction, handleAddSummaryCommentAction, handleHighlightTextAction, handleShowSourceAction, contextData, busy, setBusy]);
 
   // Helper function to extract rubric from unstructured text
   // DEPRECATED: No longer used - we now require explicit JSON formatting
@@ -507,11 +558,44 @@ export default function GlobalChatPanel({
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Cmd/Ctrl + Enter to send
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      sendMessage();
+      return;
+    }
+    // Enter (without Shift) to send
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
+      // Cmd/Ctrl + K to toggle chat
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (chat.isOpen) {
+          closeChat();
+        } else {
+          useStore.getState().openChat();
+        }
+        return;
+      }
+
+      // Escape to close chat (only if open)
+      if (e.key === 'Escape' && chat.isOpen) {
+        e.preventDefault();
+        closeChat();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [chat.isOpen, closeChat]);
 
   const handleClearHistory = () => {
     if (!currentScreen) return;
@@ -521,27 +605,36 @@ export default function GlobalChatPanel({
     }
   };
 
-  const handlePromptSuggestionClick = async (suggestion: string) => {
+  const handlePromptSuggestionClick = async (suggestion: string | { label: string; contextEnhancement: string }) => {
+    // Handle both string and object formats
+    const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
+    const contextEnhancement = typeof suggestion === 'string' ? '' : suggestion.contextEnhancement;
+
     // Directly send the suggestion instead of populating the input field
-    if (!suggestion.trim() || busy || !currentScreen) return;
+    if (!label.trim() || busy || !currentScreen) return;
 
     setBusy(true);
-    setLastPrompt(suggestion); // Store for fallback action button generation
+    setLastPrompt(label); // Store for fallback action button generation
 
-    // Add user message
-    addChatMessage({ role: 'user', content: suggestion });
+    // Add user message (show only the label to user)
+    addChatMessage({ role: 'user', content: label });
 
     // Use same strict rubric detection as handleSubmit
-    const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(suggestion);
-    const hasRubricKeyword = /\brubric\b/i.test(suggestion);
+    const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(label);
+    const hasRubricKeyword = /\brubric\b/i.test(label);
     const isRubricRequest = hasActionVerb && hasRubricKeyword;
 
     try {
       let streamingContent = '';
 
-      const enhancedPrompt = isRubricRequest && !suggestion.includes('```json')
-        ? `${suggestion}\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`
-        : suggestion;
+      // Build enhanced prompt with context
+      let enhancedPrompt = label;
+      if (contextEnhancement) {
+        enhancedPrompt = `${label}\n\nContext: ${contextEnhancement}`;
+      }
+      if (isRubricRequest && !label.includes('```json')) {
+        enhancedPrompt += `\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`;
+      }
 
       const response = await askGeminiStream(enhancedPrompt, contextData, (chunk) => {
         streamingContent += chunk;
@@ -555,9 +648,17 @@ export default function GlobalChatPanel({
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1]);
+          // Accept different artifact types
           if (parsed.type === 'rubric' && parsed.criteria) {
             artifact = parsed;
+          } else if (parsed.type === 'report' || parsed.type === 'table' || parsed.type === 'data') {
+            artifact = parsed;
+          } else if (parsed.type) {
+            // Accept any structured artifact with a type field
+            artifact = parsed;
+          }
 
+          if (artifact) {
             setGeneratingArtifact(true, artifact);
             if (onArtifactGenerated) {
               onArtifactGenerated(artifact);
@@ -591,13 +692,140 @@ export default function GlobalChatPanel({
       }
     } catch (error) {
       console.error('Chat error:', error);
+      const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
       addChatMessage({
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request.',
+        role: 'system',
+        content: isNetworkError
+          ? '❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n[ACTION:retry|Retry|' + prompt + ']'
+          : '❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n[ACTION:retry|Try Again|' + prompt + ']',
       });
     } finally {
       setBusy(false);
     }
+  };
+
+  // Handle message feedback
+  const handleMessageFeedback = (messageIndex: number, feedback: 'thumbsup' | 'thumbsdown') => {
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageIndex]: prev[messageIndex] === feedback ? undefined : feedback,
+    }));
+
+    // Log feedback (in production, send to analytics/backend)
+    console.log(`Message ${messageIndex} feedback:`, feedback);
+  };
+
+  // Handle copy message
+  const handleCopyMessage = async (content: string, messageIndex: number) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageIndex(messageIndex);
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setCopiedMessageIndex(null);
+      }, 2000);
+      console.log('Message copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  };
+
+  // Handle regenerate response
+  const handleRegenerateResponse = async (messageIndex: number) => {
+    // Find the user message that prompted this response
+    const userMessage = messages[messageIndex - 1];
+    if (!userMessage || userMessage.role !== 'user') {
+      console.error('Cannot find user message to regenerate from');
+      return;
+    }
+
+    // Remove the AI response and regenerate
+    const updatedMessages = messages.slice(0, messageIndex);
+    if (currentScreen) {
+      useStore.setState(state => ({
+        chat: {
+          ...state.chat,
+          conversations: {
+            ...state.chat.conversations,
+            [currentScreen]: {
+              ...state.chat.conversations[currentScreen],
+              messages: updatedMessages,
+            },
+          },
+        },
+      }));
+    }
+
+    // Re-send the user's message
+    await sendMessage(userMessage.content);
+  };
+
+  // Handle refine response (shorter, simpler, example)
+  const handleRefineResponse = async (messageIndex: number, refinementType: 'shorter' | 'simpler' | 'example') => {
+    const aiMessage = messages[messageIndex];
+    if (!aiMessage || aiMessage.role !== 'assistant') {
+      console.error('Cannot find AI message to refine');
+      return;
+    }
+
+    const refinementPrompts = {
+      shorter: 'Please provide a shorter, more concise version of your previous response.',
+      simpler: 'Please explain your previous response in simpler terms that are easier to understand.',
+      example: 'Please provide a concrete example to illustrate your previous response.',
+    };
+
+    setInput(refinementPrompts[refinementType]);
+    setTimeout(async () => {
+      await sendMessage();
+    }, 100);
+  };
+
+  // Generate follow-up suggestions based on context and message
+  const generateFollowUpSuggestions = (messageIndex: number): string[] => {
+    const msg = messages[messageIndex];
+    if (!msg || msg.role !== 'assistant') return [];
+
+    const userMsg = messages[messageIndex - 1];
+    const userPrompt = userMsg?.content.toLowerCase() || '';
+
+    // Context-specific follow-ups
+    if (currentScreen === 'document-viewer') {
+      if (userPrompt.includes('thesis') || userPrompt.includes('argument')) {
+        return [
+          'What evidence supports this thesis?',
+          'Are there any counter-arguments I should address?',
+        ];
+      }
+      if (userPrompt.includes('similarity') || userPrompt.includes('match')) {
+        return [
+          'How should I cite these sources?',
+          'Which matches are the most concerning?',
+        ];
+      }
+      if (userPrompt.includes('comment') || userPrompt.includes('feedback')) {
+        return [
+          'Can you suggest more feedback?',
+          'What tone should I use for this comment?',
+        ];
+      }
+      return [
+        'What else should I look for in this document?',
+        'Can you explain this in more detail?',
+      ];
+    }
+
+    if (currentScreen === 'inbox') {
+      return [
+        'Show me submissions with high similarity',
+        'What trends do you see in recent submissions?',
+      ];
+    }
+
+    // Generic follow-ups
+    return [
+      'Can you explain that differently?',
+      'What should I do next?',
+    ];
   };
 
   if (!chat.isOpen || !currentScreen) return null;
@@ -606,28 +834,43 @@ export default function GlobalChatPanel({
   const baseWidth = chat.panelWidth;
   const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
 
-  const panelStyle: React.CSSProperties = isOverlay
+  // In document viewer shrink mode: static positioning in flex layout
+  // In document viewer overlay mode OR other screens: use fixed positioning
+  const panelStyle: React.CSSProperties = isDocumentViewer && !isOverlay
     ? {
+        // Document viewer, shrink mode: static in flex layout
+        width: `${expandedWidth}px`,
+        flexShrink: 0,
+        transition: 'width 300ms ease-in-out',
+      }
+    : isOverlay
+    ? {
+        // Overlay mode (all screens): fixed with rounded corners
         position: 'fixed',
         right: '1rem',
         top: '5rem',
         bottom: '1rem',
         width: `${expandedWidth}px`,
         zIndex: 1000,
+        transition: 'transform 300ms ease-in-out, width 300ms ease-in-out',
       }
     : {
+        // Other screens, shrink mode: fixed full height
         position: 'fixed',
         right: 0,
         top: 0,
         bottom: 0,
         width: `${expandedWidth}px`,
         zIndex: 50, // Higher than table overflow menus
+        transition: 'transform 300ms ease-in-out, width 300ms ease-in-out',
       };
 
   return (
     <div
       ref={panelRef}
-      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${isOverlay ? 'shadow-2xl rounded-lg border' : ''} ${isOverlay ? '' : 'h-full'}`}
+      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${isOverlay ? 'shadow-2xl rounded-lg border' : 'h-full'} ${
+        isDocumentViewer && !isOverlay ? 'animate-slide-in-left' : isOverlay ? 'animate-slide-in-right' : 'animate-slide-in-right'
+      }`}
       style={panelStyle}
     >
       {/* Resize handle (only in shrink mode) */}
@@ -647,6 +890,59 @@ export default function GlobalChatPanel({
           <span className="text-lg">✨</span>
           <h3 className="font-semibold text-sm">AI Assistant</h3>
           <span className="text-xs text-gray-500">({currentScreen})</span>
+          <div className="relative">
+            <button
+              onClick={() => setShowContextHelp(!showContextHelp)}
+              className="p-1 hover:bg-gray-200 rounded-full text-gray-500 hover:text-gray-700"
+              title="What can the AI see?"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {showContextHelp && (
+              <div className="absolute left-0 top-8 w-64 bg-white border shadow-lg rounded-lg p-3 text-xs z-50">
+                <div className="mb-2 font-semibold text-gray-700">AI has access to:</div>
+                <ul className="space-y-1 text-gray-600">
+                  {currentScreen === 'document-viewer' && (
+                    <>
+                      <li>• Document title and author</li>
+                      <li>• Current, first, and last page content</li>
+                      <li>• All similarity matches and sources</li>
+                      <li>• Your comments and highlights</li>
+                    </>
+                  )}
+                  {currentScreen === 'inbox' && (
+                    <>
+                      <li>• All submissions in your inbox</li>
+                      <li>• Submission metadata (dates, authors, similarity scores)</li>
+                      <li>• Statistics and trends</li>
+                    </>
+                  )}
+                  {currentScreen === 'insights' && (
+                    <>
+                      <li>• Course analytics data</li>
+                      <li>• Submission trends</li>
+                      <li>• Similarity score distributions</li>
+                    </>
+                  )}
+                  {currentScreen === 'settings' && (
+                    <>
+                      <li>• Application settings</li>
+                      <li>• Feature flags</li>
+                      <li>• User preferences</li>
+                    </>
+                  )}
+                </ul>
+                <button
+                  onClick={() => setShowContextHelp(false)}
+                  className="mt-2 text-blue-600 hover:underline text-xs"
+                >
+                  Got it
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <button
           onClick={closeChat}
@@ -660,9 +956,29 @@ export default function GlobalChatPanel({
       {/* Messages */}
       <div ref={scrollerRef} className="flex-1 overflow-auto p-3 space-y-3 bg-gray-50">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 text-sm mt-8">
-            <p className="mb-4">👋 Hi! I'm your AI assistant.</p>
-            <p>Ask me anything about {currentScreen === 'document-viewer' ? 'this document' : `the ${currentScreen} page`}.</p>
+          <div className="text-center text-gray-500 text-sm mt-8 px-4">
+            <p className="mb-6 text-base">👋 Hi! I'm your AI assistant.</p>
+            <p className="mb-4">Here are some things I can help with:</p>
+            <div className="grid gap-2 max-w-md mx-auto">
+              {promptSuggestions.slice(0, 4).map((suggestion, idx) => {
+                const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
+                return (
+                  <button
+                    key={idx}
+                    onClick={async () => {
+                      setInput(label);
+                      // Auto-send after a brief delay to show the input
+                      setTimeout(async () => {
+                        await sendMessage();
+                      }, 50);
+                    }}
+                    className="px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left text-gray-700 text-sm"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -697,12 +1013,32 @@ export default function GlobalChatPanel({
                 {/* Message content with padding */}
                 <div className={msg.role === 'user' ? 'px-3 py-2 whitespace-pre-wrap' : 'px-3 py-2'}>
                   {msg.role === 'assistant' && msg.engine === 'gemini' && (
-                    <div className="text-[10px] text-gray-400 mb-1">Gemini</div>
+                    <div className="text-[10px] text-gray-400 mb-1 flex items-center gap-2">
+                      <span>Gemini</span>
+                      <span className="text-gray-300">•</span>
+                      <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  )}
+                  {msg.role === 'assistant' && !msg.engine && (
+                    <div className="text-[10px] text-gray-400 mb-1">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   )}
                   {msg.role === 'user' ? (
-                    parsedContent.text
+                    <>
+                      {parsedContent.text}
+                      <div className="text-[10px] text-blue-200 mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </>
                   ) : (
-                    <Markdown text={parsedContent.text} />
+                    <Markdown
+                      text={parsedContent.text}
+                      matchCards={contextData?.matchCards}
+                      onCitationClick={(sourceId) => {
+                        handleShowSourceAction({ sourceId });
+                      }}
+                    />
                   )}
 
                   {/* Render action buttons if present */}
@@ -717,6 +1053,100 @@ export default function GlobalChatPanel({
                         />
                       ))}
                     </div>
+                  )}
+
+                  {/* Message feedback buttons (thumbs up/down, copy, regenerate) - only for assistant messages */}
+                  {msg.role === 'assistant' && (
+                    <>
+                      <div className="mt-3 pt-2 border-t border-gray-100 flex items-center gap-3 text-xs">
+                        <button
+                          onClick={() => handleMessageFeedback(messages.indexOf(msg), 'thumbsup')}
+                          className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
+                            messageFeedback[messages.indexOf(msg)] === 'thumbsup' ? 'text-green-600' : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                          title="Good response"
+                        >
+                          <span className="text-sm">👍</span>
+                        </button>
+                        <button
+                          onClick={() => handleMessageFeedback(messages.indexOf(msg), 'thumbsdown')}
+                          className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors ${
+                            messageFeedback[messages.indexOf(msg)] === 'thumbsdown' ? 'text-red-600' : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                          title="Bad response"
+                        >
+                          <span className="text-sm">👎</span>
+                        </button>
+                        <div className="flex-1"></div>
+                        <button
+                          onClick={() => handleCopyMessage(parsedContent.text, messages.indexOf(msg))}
+                          className="px-2 py-1 rounded hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                        >
+                          {copiedMessageIndex === messages.indexOf(msg) ? 'Copied!' : 'Copy'}
+                        </button>
+                        <button
+                          onClick={() => handleRegenerateResponse(messages.indexOf(msg))}
+                          className="px-2 py-1 rounded hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={busy}
+                        >
+                          Regenerate
+                        </button>
+                      </div>
+                      {/* Suggested follow-up questions */}
+                      {(() => {
+                        const followUps = generateFollowUpSuggestions(messages.indexOf(msg));
+                        if (followUps.length === 0) return null;
+
+                        const messageIndex = messages.indexOf(msg);
+                        const isExpanded = showFollowUps[messageIndex];
+
+                        return (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <button
+                              onClick={() => {
+                                const newState = !isExpanded;
+                                setShowFollowUps(prev => ({
+                                  ...prev,
+                                  [messageIndex]: newState
+                                }));
+
+                                // Auto-scroll when expanding to show the suggestions
+                                if (newState) {
+                                  setTimeout(() => {
+                                    if (scrollerRef.current) {
+                                      scrollerRef.current.scrollBy({
+                                        top: 120,
+                                        behavior: 'smooth'
+                                      });
+                                    }
+                                  }, 50);
+                                }
+                              }}
+                              className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                            >
+                              <span>{isExpanded ? '▼' : '▶'}</span>
+                              <span>Suggested follow-ups</span>
+                            </button>
+                            {isExpanded && (
+                              <div className="mt-2 flex flex-col gap-1">
+                                {followUps.map((question, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => {
+                                      setInput(question);
+                                      inputRef.current?.focus();
+                                    }}
+                                    className="text-left px-3 py-2 text-xs bg-gray-50 hover:bg-blue-50 rounded text-gray-700 hover:text-blue-700 transition-colors"
+                                  >
+                                    {question}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
 
@@ -734,25 +1164,64 @@ export default function GlobalChatPanel({
             </div>
           );
         })}
+
+        {/* Typing indicator when busy */}
+        {busy && (
+          <div className="flex justify-start">
+            <div className="bg-white border rounded px-3 py-2 flex items-center gap-2">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <span className="text-xs text-gray-500">Thinking...</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Prompt Suggestions - Always visible for quick actions */}
+      {/* Prompt Suggestions - Collapsible */}
       {promptSuggestions.length > 0 && (
-        <div className="px-3 py-2 border-t bg-gray-50">
-          <div className="text-[10px] text-gray-500 mb-1.5 font-medium uppercase tracking-wide">
-            {messages.length === 0 ? 'Quick Actions' : 'Suggested Actions'}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {promptSuggestions.map((suggestion, idx) => (
-              <button
-                key={idx}
-                onClick={() => handlePromptSuggestionClick(suggestion)}
-                className="text-xs px-3 py-1.5 bg-white hover:bg-blue-50 hover:border-blue-300 rounded-full border border-gray-300 text-gray-700 transition-colors duration-150 shadow-sm hover:shadow"
-                disabled={busy}
-              >
-                {suggestion}
-              </button>
-            ))}
+        <div className="border-t bg-gray-50">
+          {/* Collapse toggle bar */}
+          <button
+            onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+            className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-100 transition-colors"
+          >
+            <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
+              Suggested Actions
+            </div>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${suggestionsExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Expandable content */}
+          <div
+            className={`overflow-hidden transition-all duration-200 ease-in-out ${
+              suggestionsExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+              {promptSuggestions.map((suggestion, idx) => {
+                const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handlePromptSuggestionClick(suggestion)}
+                    className="text-xs px-3 py-1.5 bg-white hover:bg-blue-50 hover:border-blue-300 rounded-full border border-gray-300 text-gray-700 transition-colors duration-150 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={busy}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -763,7 +1232,7 @@ export default function GlobalChatPanel({
           <textarea
             ref={inputRef}
             className="flex-1 border rounded px-3 py-2 text-sm resize-none overflow-auto max-h-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Type your message... (Shift+Enter for newline)"
+            placeholder="Type your message... (Enter to send, Shift+Enter for newline)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -771,11 +1240,21 @@ export default function GlobalChatPanel({
             rows={1}
           />
           <button
-            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2 min-w-[70px] justify-center"
             onClick={sendMessage}
             disabled={busy || !input.trim()}
           >
-            Send
+            {busy ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Sending</span>
+              </>
+            ) : (
+              'Send'
+            )}
           </button>
         </div>
         <div className="flex justify-between items-center">
