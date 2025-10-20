@@ -184,14 +184,52 @@ useEffect(() => {
   );
   const totalPages = Math.ceil(filtered.length / rowsPerPage) || 1;
 
+  // Compute metrics for chat context (memoized for performance)
+  const inboxMetrics = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    return {
+      total: submissions.length,
+      graded: submissions.filter(s => s.grade !== null && s.grade !== undefined).length,
+      ungraded: submissions.filter(s => s.grade === null || s.grade === undefined).length,
+      highSimilarity: submissions.filter(s => getSimilarityScalar(s.similarity) > 40).length,
+      mediumSimilarity: submissions.filter(s => {
+        const sim = getSimilarityScalar(s.similarity);
+        return sim >= 20 && sim <= 40;
+      }).length,
+      lowSimilarity: submissions.filter(s => getSimilarityScalar(s.similarity) < 20).length,
+      recentSubmissions: submissions.filter(s => {
+        try {
+          const submittedDate = new Date(s.submittedAt);
+          return submittedDate >= sevenDaysAgo;
+        } catch {
+          return false;
+        }
+      }).length,
+      avgSimilarity: submissions.length > 0
+        ? Math.round((submissions.reduce((sum, s) => sum + (getSimilarityScalar(s.similarity) || 0), 0) / submissions.length) * 10) / 10
+        : 0,
+    };
+  }, [submissions]);
+
   // Context data for chat (after helper functions are defined)
   const chatContext = {
     screen: 'inbox' as const,
     totalSubmissions: submissions.length,
     selectedCount: selectedIds.size,
-    avgSimilarity: submissions.length > 0
-      ? Math.round((submissions.reduce((sum, s) => sum + (getSimilarityScalar(s.similarity) || 0), 0) / submissions.length) * 10) / 10
-      : 0,
+    avgSimilarity: inboxMetrics.avgSimilarity,
+    // Computed metrics for instant, accurate answers
+    metrics: inboxMetrics,
+    // Include submission list for flexible queries
+    submissions: submissions.map(s => ({
+      id: s.id,
+      title: s.title,
+      author: s.author,
+      similarity: getSimilarityScalar(s.similarity),
+      grade: s.grade,
+      submittedAt: s.submittedAt,
+    })).slice(0, 50), // Limit to first 50 to avoid context overflow
   };
 
   const promptSuggestions = [

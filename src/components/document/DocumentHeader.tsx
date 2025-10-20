@@ -1,6 +1,7 @@
 import type { DocumentData } from '../../types';
 import { useStore } from '../../store';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataManagementModal } from '../settings/DataManagementModal';
 import { ChatButton } from '../chatbot/ChatButton';
 import { PrototypeControls } from '../settings/PrototypeControls';
@@ -13,18 +14,25 @@ interface DocumentHeaderProps {
 
 export function DocumentHeader({ doc, useSerifFont, onToggleSerifFont }: DocumentHeaderProps) {
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
       {/* Top Header Bar */}
       <div className="bg-white border-b px-6 py-3 flex items-center justify-between relative">
         <div className="flex items-center gap-2 min-w-0">
-          <img
-            src="/logo.svg"
-            alt="iThenticate"
-            className="h-9 w-auto select-none"
-            draggable={false}
-          />
+          <button
+            onClick={() => navigate('/')}
+            className="hover:opacity-80 transition-opacity"
+            title="Go to Inbox"
+          >
+            <img
+              src="/logo.svg"
+              alt="iThenticate"
+              className="h-9 w-auto select-none"
+              draggable={false}
+            />
+          </button>
         </div>
         <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
           <div className="font-semibold text-sm text-gray-900">{doc.author}</div>

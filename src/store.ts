@@ -303,8 +303,10 @@ export interface StoreState {
   // Chat Action Handlers
   /** Handle chat action: draft a comment based on highlighted issue */
   handleDraftCommentAction: (payload: { matchCardId?: string; issueDescription?: string }) => Promise<string>;
-  /** Handle chat action: add comment to document */
+  /** Handle chat action: add inline comment to document */
   handleAddCommentAction: (payload: { text: string; page?: number; highlightId?: string }) => void;
+  /** Handle chat action: add/update summary comment */
+  handleAddSummaryCommentAction: (payload: { text: string }) => void;
   /** Handle chat action: navigate to and highlight specific match */
   handleHighlightTextAction: (payload: { matchCardId: string; matchIndex?: number }) => void;
   /** Handle chat action: show source details */
@@ -2185,9 +2187,35 @@ export const useStore = create<StoreState>((set, get) => ({
         endOffset,
       });
 
-      console.log(`✅ Comment added successfully on page ${commentPage}`);
+      console.log(`✅ Inline comment added successfully on page ${commentPage}`);
     } catch (error) {
       console.error('Error adding comment:', error);
+      throw error;
+    }
+  },
+
+  handleAddSummaryCommentAction: (payload) => {
+    try {
+      const { text } = payload;
+
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        console.error('Cannot add summary comment: invalid text provided');
+        throw new Error('Summary comment text is required');
+      }
+
+      const state = get();
+      const currentSummary = state.summaryComment;
+
+      // If there's existing summary, append with a newline separator
+      const newSummary = currentSummary
+        ? `${currentSummary}\n\n${text.trim()}`
+        : text.trim();
+
+      get().updateSummaryComment(newSummary);
+
+      console.log(`✅ Summary comment ${currentSummary ? 'updated' : 'added'} successfully`);
+    } catch (error) {
+      console.error('Error adding summary comment:', error);
       throw error;
     }
   },

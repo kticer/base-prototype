@@ -4,6 +4,7 @@ interface DocumentPageControlsProps {
   totalPages: number;
   zoom: number;
   wordCount: number;
+  scale?: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
@@ -14,10 +15,13 @@ export default function DocumentPageControls({
   totalPages,
   zoom,
   wordCount,
+  scale = 1.0,
   onZoomIn,
   onZoomOut,
   onZoomReset,
 }: DocumentPageControlsProps) {
+  // Calculate effective scale (zoom * layout scale)
+  const effectiveScale = Math.round((zoom / 100) * scale * 100);
   return (
     <div className="absolute bottom-0 left-0">
       <div className="bg-white shadow-md rounded-lg px-4 py-2 flex items-center text-sm text-gray-700 border border-gray-200 whitespace-nowrap">
@@ -41,9 +45,9 @@ export default function DocumentPageControls({
           <button
             onClick={onZoomReset}
             className="text-gray-700 hover:underline cursor-pointer"
-            title="Reset zoom"
+            title={scale < 1.0 ? `Zoom: ${zoom}% × Layout: ${Math.round(scale * 100)}% = ${effectiveScale}%` : "Reset zoom"}
           >
-            {zoom}%
+            {effectiveScale}%
           </button>
           <div className="flex items-center gap-1 ml-2">
             <button

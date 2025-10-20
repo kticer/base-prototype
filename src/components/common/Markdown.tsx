@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 
 type MarkdownProps = {
   text: string;
+  /** Optional match cards for citation detection */
+  matchCards?: any[];
+  /** Callback when a citation is clicked */
+  onCitationClick?: (sourceId: string) => void;
 };
 
 // Very small, safe-ish Markdown renderer for chat content.
 // Supports: paragraphs, headings (#..######), bold, italics, inline code, fenced code blocks,
-// links [text](url), unordered/ordered lists. Avoids dangerouslySetInnerHTML.
+// links [text](url), unordered/ordered lists, source citations. Avoids dangerouslySetInnerHTML.
 // Not a full Markdown implementation; intentionally conservative for safety.
-export default function Markdown({ text }: MarkdownProps) {
+export default function Markdown({ text, matchCards, onCitationClick }: MarkdownProps) {
   const blocks = splitIntoBlocks(text || '');
   return (
     <div className="prose prose-sm max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded">
       {blocks.map((b, i) => (
-        <Block key={i} block={b} />
+        <Block key={i} block={b} matchCards={matchCards} onCitationClick={onCitationClick} />
       ))}
     </div>
   );
@@ -76,7 +80,7 @@ function splitIntoBlocks(text: string): TextBlock[] {
   return out.length ? out : [{ type: 'paragraph', content: '' }];
 }
 
-function Block({ block }: { block: TextBlock }) {
+function Block({ block, matchCards, onCitationClick }: { block: TextBlock; matchCards?: any[]; onCitationClick?: (sourceId: string) => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   switch (block.type) {
@@ -127,7 +131,7 @@ function Block({ block }: { block: TextBlock }) {
         return (
           <ol className="list-decimal pl-5">
             {block.items.map((it, i) => (
-              <li key={i}><Inline text={it} /></li>
+              <li key={i}><Inline text={it} matchCards={matchCards} onCitationClick={onCitationClick} /></li>
             ))}
           </ol>
         );
@@ -135,7 +139,7 @@ function Block({ block }: { block: TextBlock }) {
       return (
         <ul className="list-disc pl-5">
           {block.items.map((it, i) => (
-            <li key={i}><Inline text={it} /></li>
+            <li key={i}><Inline text={it} matchCards={matchCards} onCitationClick={onCitationClick} /></li>
           ))}
         </ul>
       );
@@ -146,14 +150,14 @@ function Block({ block }: { block: TextBlock }) {
       if (h) {
         const level = Math.min(6, h[1].length);
         const Tag = (`h${level}` as unknown) as keyof JSX.IntrinsicElements;
-        return <Tag className="font-semibold"><Inline text={h[2]} /></Tag>;
+        return <Tag className="font-semibold"><Inline text={h[2]} matchCards={matchCards} onCitationClick={onCitationClick} /></Tag>;
       }
-      return <p><Inline text={block.content} /></p>;
+      return <p><Inline text={block.content} matchCards={matchCards} onCitationClick={onCitationClick} /></p>;
   }
 }
 
-function Inline({ text }: { text: string }) {
-  // Process inline code, strong, em, and links.
+function Inline({ text, matchCards, onCitationClick }: { text: string; matchCards?: any[]; onCitationClick?: (sourceId: string) => void }) {
+  // Process inline code, strong, em, links, and source citations.
   // We split by backticks for inline code first to avoid formatting inside code spans.
   const parts = text.split(/(`[^`]*`)/g);
   return (
@@ -167,21 +171,74 @@ function Inline({ text }: { text: string }) {
         let lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = linkRegex.exec(part)) !== null) {
-          if (m.index > lastIndex) chunks.push(formatEmphasis(part.slice(lastIndex, m.index), `${i}-t-${lastIndex}`));
+          if (m.index > lastIndex) chunks.push(formatTextWithCitations(part.slice(lastIndex, m.index), `${i}-t-${lastIndex}`, matchCards, onCitationClick));
           const url = sanitizeUrl(m[2]);
           const label = m[1];
           if (url) {
             chunks.push(<a key={`${i}-a-${m.index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{label}</a>);
           } else {
-            chunks.push(formatEmphasis(m[0], `${i}-a-${m.index}-txt`));
+            chunks.push(formatTextWithCitations(m[0], `${i}-a-${m.index}-txt`, matchCards, onCitationClick));
           }
           lastIndex = m.index + m[0].length;
         }
-        if (lastIndex < part.length) chunks.push(formatEmphasis(part.slice(lastIndex), `${i}-t-end`));
+        if (lastIndex < part.length) chunks.push(formatTextWithCitations(part.slice(lastIndex), `${i}-t-end`, matchCards, onCitationClick));
         return <React.Fragment key={i}>{chunks}</React.Fragment>;
       })}
     </>
   );
+}
+
+function formatTextWithCitations(text: string, key: string, matchCards?: any[], onCitationClick?: (sourceId: string) => void) {
+  // If no match cards or click handler, just format emphasis normally
+  if (!matchCards || !onCitationClick) {
+    return formatEmphasis(text, key);
+  }
+
+  // Detect source names in quotes (e.g., "The Kitchn" or "Wikipedia")
+  const sourcePattern = /["']([^"']+)["']/g;
+  const chunks: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = sourcePattern.exec(text)) !== null) {
+    const sourceName = match[1];
+    const matchCard = matchCards.find((mc: any) =>
+      mc.sourceName?.toLowerCase() === sourceName.toLowerCase()
+    );
+
+    // Add text before the match
+    if (match.index > lastIndex) {
+      chunks.push(formatEmphasis(text.slice(lastIndex, match.index), `${key}-pre-${match.index}`));
+    }
+
+    // If we found a matching source, make it clickable
+    if (matchCard) {
+      chunks.push(
+        <button
+          key={`${key}-cite-${match.index}`}
+          onClick={(e) => {
+            e.preventDefault();
+            onCitationClick(matchCard.id);
+          }}
+          className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+        >
+          "{sourceName}"
+        </button>
+      );
+    } else {
+      // Not a recognized source, just format normally
+      chunks.push(formatEmphasis(match[0], `${key}-${match.index}`));
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    chunks.push(formatEmphasis(text.slice(lastIndex), `${key}-end`));
+  }
+
+  return chunks.length > 0 ? <>{chunks}</> : formatEmphasis(text, key);
 }
 
 function formatEmphasis(text: string, key: string) {

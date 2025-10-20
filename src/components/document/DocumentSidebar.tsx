@@ -2,6 +2,7 @@ import ReportHeader from './ReportHeader';
 import ReportContainer from './ReportContainer';
 import { FeedbackPanel } from '../feedback/FeedbackPanel';
 import { GradingPanel } from '../feedback/GradingPanel';
+import { AIWritingPanel } from './AIWritingPanel';
 import type { MatchCard, DocumentData } from '../../types';
 import ChatbotPanel from '../chatbot/ChatbotPanel';
 import { useStore } from '../../store';
@@ -111,15 +112,17 @@ export function DocumentSidebar({
 
   return (
     <aside className="w-96 lg:w-80 xl:w-96 border-l bg-white flex flex-col transition-all duration-300 ease-in-out">
-      <div className="sticky top-0 z-10 bg-white shadow-sm">
-        <ReportHeader
-          similarityPercent={similarityScore}
-          activeTab={activeTab}
-          setActiveTab={onActiveTabChange}
-          primaryTab={primaryTab}
-        />
-      </div>
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      {primaryTab !== "AI Writing" && (
+        <div className="sticky top-0 z-10 bg-white shadow-sm">
+          <ReportHeader
+            similarityPercent={similarityScore}
+            activeTab={activeTab}
+            setActiveTab={onActiveTabChange}
+            primaryTab={primaryTab}
+          />
+        </div>
+      )}
+      <div className={`flex-1 overflow-auto ${primaryTab === "AI Writing" ? '' : 'p-4 space-y-4'}`}>
         {primaryTab === "Similarity" && (
           <ReportContainer matchCards={matchCards} />
         )}
@@ -142,9 +145,28 @@ export function DocumentSidebar({
             />
           </div>
         )}
-        {(primaryTab === "AI Writing" || primaryTab === "Flags") && (
+        {primaryTab === "AI Writing" && (
+          <AIWritingPanel
+            overallPercentage={24}
+            totalPages={doc.pages?.length || 3}
+            aiGeneratedOnly={{
+              count: 5,
+              percentage: 24,
+            }}
+            aiParaphrased={{
+              count: 0,
+              percentage: 0,
+            }}
+            pageBreakdown={doc.pages?.map((_, idx) => ({
+              page: idx + 1,
+              // Mock: varied AI percentages across pages
+              aiPercentage: idx === 0 ? 60 : idx === 1 ? 20 : 5,
+            }))}
+          />
+        )}
+        {primaryTab === "Flags" && (
           <div className="space-y-4">
-            <div className="text-sm text-gray-600">{primaryTab} content will appear here</div>
+            <div className="text-sm text-gray-600">Flags content will appear here</div>
           </div>
         )}
       </div>

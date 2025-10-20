@@ -1,5 +1,16 @@
 import type { DocumentData, MatchCard } from '../types';
 
+export type InboxMetrics = {
+  total: number;
+  graded: number;
+  ungraded: number;
+  highSimilarity: number;
+  mediumSimilarity: number;
+  lowSimilarity: number;
+  recentSubmissions: number;
+  avgSimilarity: number;
+};
+
 export type GeminiContext = {
   screen?: string;
   doc?: DocumentData;
@@ -11,6 +22,15 @@ export type GeminiContext = {
   totalSubmissions?: number;
   selectedCount?: number;
   avgSimilarity?: number;
+  metrics?: InboxMetrics; // Computed metrics for instant answers
+  submissions?: Array<{
+    id: string;
+    title: string;
+    author: string;
+    similarity: number;
+    grade: any;
+    submittedAt: string;
+  }>;
   // Insights-specific context
   courseAnalytics?: any;
   totalDocuments?: number;
@@ -45,22 +65,31 @@ export async function askGemini(prompt: string, ctx: GeminiContext): Promise<{ t
 
   // MOCK FALLBACK: keep deterministic, prompt-aware responses
   await new Promise((r) => setTimeout(r, 300));
-  const { screen, doc, wordCount = 0, similarityScore, matchCards = [], totalSubmissions, avgSimilarity } = ctx;
+  const { screen, doc, wordCount = 0, similarityScore, matchCards = [], totalSubmissions, avgSimilarity, metrics } = ctx;
   const topSources = matchCards.slice(0, 3).map((m) => `${m.sourceName} (${m.similarityPercent}%)`).join(', ');
   const p = prompt.toLowerCase();
 
   // Inbox-specific responses
-  if (screen === 'inbox') {
+  if (screen === 'inbox' && metrics) {
     if (p.includes('average') || p.includes('avg')) {
-      return { text: `The average similarity score across ${totalSubmissions || 0} submissions is ${avgSimilarity || 0}%.`, isReal: false };
+      return { text: `The average similarity score across ${metrics.total} submissions is ${metrics.avgSimilarity}%.`, isReal: false };
     }
     if (p.includes('high similarity') || p.includes('submissions with high')) {
-      return { text: `I can help you find submissions with high similarity. Looking at the ${totalSubmissions || 0} submissions, the average similarity is ${avgSimilarity || 0}%. You can sort the table by the Similarity column to see the highest scores first.`, isReal: false };
+      return { text: `I found ${metrics.highSimilarity} submissions with high similarity (>40%). The average similarity across all ${metrics.total} submissions is ${metrics.avgSimilarity}%. Would you like me to show you these high similarity submissions?`, isReal: false };
     }
-    if (p.includes('grading') || p.includes('need grading')) {
-      return { text: `I can see you have ${totalSubmissions || 0} total submissions in your inbox. To check grading status, you can sort by the Grade column or open individual submissions to grade them.`, isReal: false };
+    if (p.includes('grading') || p.includes('need grading') || p.includes('not graded') || p.includes('ungraded')) {
+      return { text: `Out of ${metrics.total} total submissions, ${metrics.ungraded} still need grading and ${metrics.graded} have been graded. Would you like to see the ungraded submissions?`, isReal: false };
     }
-    return { text: `You have ${totalSubmissions || 0} submissions in your inbox with an average similarity of ${avgSimilarity || 0}%. How can I help you analyze or manage these submissions?`, isReal: false };
+    if (p.includes('recent') || p.includes('last week')) {
+      return { text: `${metrics.recentSubmissions} submissions were received in the last 7 days out of ${metrics.total} total submissions.`, isReal: false };
+    }
+    if (p.includes('medium similarity')) {
+      return { text: `${metrics.mediumSimilarity} submissions have medium similarity (20-40%).`, isReal: false };
+    }
+    if (p.includes('low similarity')) {
+      return { text: `${metrics.lowSimilarity} submissions have low similarity (<20%).`, isReal: false };
+    }
+    return { text: `You have ${metrics.total} submissions: ${metrics.graded} graded, ${metrics.ungraded} ungraded. ${metrics.highSimilarity} have high similarity (>40%). Average similarity: ${metrics.avgSimilarity}%. How can I help?`, isReal: false };
   }
 
   // Document viewer responses

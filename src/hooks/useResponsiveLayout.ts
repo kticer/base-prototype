@@ -4,13 +4,20 @@ interface LayoutDimensions {
   paperOffset: number;
   commentOffset: number;
   showComments: boolean;
+  scale: number; // New: scale factor for the paper
 }
 
-export function useResponsiveLayout(showCommentColumn: boolean, sidebarVisible: boolean = true) {
+export function useResponsiveLayout(
+  showCommentColumn: boolean,
+  sidebarVisible: boolean = true,
+  chatPanelWidth: number = 0, // New: chat panel width when in shrink mode
+  chatDisplayMode: 'overlay' | 'shrink' = 'overlay'
+) {
   const [dimensions, setDimensions] = useState<LayoutDimensions>({
     paperOffset: 0,
     commentOffset: 0,
     showComments: showCommentColumn,
+    scale: 1.0,
   });
 
   useEffect(() => {
@@ -29,21 +36,23 @@ export function useResponsiveLayout(showCommentColumn: boolean, sidebarVisible: 
           paperOffset: 0,
           commentOffset: 0,
           showComments: false,
+          scale: 0.7, // Scale down on mobile
         });
         return;
       }
-      
+
       // Layout constants
-      const PAPER_WIDTH = 872; // max-width of paper container
+      const PAPER_WIDTH = 872; // max-width of paper container (fixed aspect ratio)
       const COMMENT_WIDTH = 320; // w-80 = 320px
       const COMMENT_OVERLAP = 8; // allowed overlap
-      const SIDEBAR_WIDTH = sidebarVisible 
-        ? (viewportWidth >= 1280 ? 384 : viewportWidth >= 1024 ? 320 : 384) 
+      const SIDEBAR_WIDTH = sidebarVisible
+        ? (viewportWidth >= 1280 ? 384 : viewportWidth >= 1024 ? 320 : 384)
         : 0; // xl:w-96, lg:w-80, w-96, or hidden
+      const CHAT_WIDTH = chatDisplayMode === 'shrink' ? chatPanelWidth : 0;
       const PADDING = 24; // base padding
-      
+
       // Calculate available space (with some buffer for scroll bars)
-      const availableWidth = Math.max(viewportWidth - SIDEBAR_WIDTH - 20, 400);
+      const availableWidth = Math.max(viewportWidth - SIDEBAR_WIDTH - CHAT_WIDTH - 20, 400);
       
       // Calculate total needed width
       const totalNeededWidth = showCommentColumn 
@@ -63,43 +72,58 @@ export function useResponsiveLayout(showCommentColumn: boolean, sidebarVisible: 
       
       let finalDimensions: LayoutDimensions;
 
-      if (!showCommentColumn) {
-        // No comments, just center the paper
+      // Calculate scale based on available width
+      // We want to maintain paper width but scale if necessary
+      const idealPaperSpace = showCommentColumn ? PAPER_WIDTH : PAPER_WIDTH + PADDING * 2;
+      const availableForPaper = showCommentColumn
+        ? availableWidth - COMMENT_WIDTH - PADDING * 2
+        : availableWidth - PADDING * 2;
+
+      // Determine if we need to scale or hide comments
+      let scale = 1.0;
+      let hideComments = false;
+
+      if (availableWidth < 1000 && showCommentColumn) {
+        // Below 1000px with comments: hide comments and scale paper to fit
+        hideComments = true;
+        const scaleNeeded = Math.min(1.0, (availableWidth - PADDING * 2) / PAPER_WIDTH);
+        scale = Math.max(0.6, scaleNeeded); // Minimum 60% scale
+      } else if (availableForPaper < PAPER_WIDTH) {
+        // Scale paper to fit available space
+        scale = Math.max(0.6, availableForPaper / PAPER_WIDTH);
+      }
+
+      if (!showCommentColumn || hideComments) {
+        // No comments, just center the scaled paper
         finalDimensions = {
           paperOffset: 0,
           commentOffset: 0,
           showComments: false,
+          scale,
         };
-        // console.log('🚫 No comments mode');
-      } else if (totalNeededWidth <= availableWidth) {
-        // Everything fits perfectly
+        // console.log('🚫 No comments mode, scale:', scale);
+      } else if (totalNeededWidth <= availableWidth && scale >= 1.0) {
+        // Everything fits perfectly at 100%
         finalDimensions = {
           paperOffset: 0,
           commentOffset: -COMMENT_OVERLAP,
           showComments: true,
+          scale: 1.0,
         };
         // console.log('✅ Everything fits perfectly');
       } else {
-        // Need to adjust positioning
-        const excessWidth = totalNeededWidth - availableWidth;
-        const maxPaperShift = Math.min(excessWidth * 0.6, 200); // Limit paper shift
-        
-        // Calculate if comments will still be visible after adjustment
-        const finalCommentRight = PAPER_WIDTH + COMMENT_WIDTH - COMMENT_OVERLAP - maxPaperShift;
-        const commentsStillVisible = finalCommentRight <= availableWidth - PADDING;
-        
+        // Scale down to fit
         finalDimensions = {
-          paperOffset: -maxPaperShift,
+          paperOffset: 0,
           commentOffset: -COMMENT_OVERLAP,
-          showComments: commentsStillVisible,
+          showComments: true,
+          scale,
         };
-        
-        // console.log('⚠️ Tight fit, adjusting:', {
-        //   excessWidth,
-        //   maxPaperShift,
-        //   finalCommentRight,
-        //   commentsStillVisible,
-        //   availableForComments: availableWidth - PADDING,
+
+        // console.log('⚠️ Scaling paper to fit:', {
+        //   scale: `${Math.round(scale * 100)}%`,
+        //   availableWidth,
+        //   availableForPaper,
         // });
       }
 
@@ -122,7 +146,7 @@ export function useResponsiveLayout(showCommentColumn: boolean, sidebarVisible: 
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', debouncedCalculateLayout);
     };
-  }, [showCommentColumn, sidebarVisible]);
+  }, [showCommentColumn, sidebarVisible, chatPanelWidth, chatDisplayMode]);
 
   return dimensions;
 }

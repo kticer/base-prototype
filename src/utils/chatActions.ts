@@ -3,7 +3,7 @@
  */
 
 export interface ChatAction {
-  type: 'draft_comment' | 'add_comment' | 'highlight_text' | 'navigate' | 'generate_list' | 'show_source' | 'next_issue' | 'prev_issue';
+  type: 'draft_comment' | 'add_comment' | 'add_summary_comment' | 'highlight_text' | 'navigate' | 'generate_list' | 'show_source' | 'next_issue' | 'prev_issue' | 'retry';
   label: string;
   payload?: any;
 }
@@ -25,10 +25,24 @@ export interface ParsedChatResponse {
 export function parseActionsFromResponse(text: string): ParsedChatResponse {
   const actionRegex = /\[ACTION:(\w+)\|([^\]|]+)(?:\|([^\]]+))?\]/g;
   const actions: ChatAction[] = [];
+  const seen = new Set<string>();
   let match;
 
   while ((match = actionRegex.exec(text)) !== null) {
     const [, type, label, payload] = match;
+
+    // Create a unique key for deduplication
+    // Use type + payload (if exists) to identify duplicates
+    // This allows same type with different payloads, but prevents exact duplicates
+    const uniqueKey = payload ? `${type}:${payload}` : `${type}:${label}`;
+
+    // Skip if we've already seen this exact action
+    if (seen.has(uniqueKey)) {
+      console.log(`⚠️ Skipping duplicate action: ${type} - ${label}`);
+      continue;
+    }
+
+    seen.add(uniqueKey);
     actions.push({
       type: type as ChatAction['type'],
       label,
