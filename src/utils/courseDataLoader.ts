@@ -57,8 +57,8 @@ export async function loadCourseSubmissions(): Promise<CourseSubmission[]> {
 
           return {
             id: entry.id,
-            title: entry.title,
-            author: entry.author,
+            title: documentData.title || entry.title,
+            author: documentData.author || entry.author,
             similarity: entry.similarity,
             dateAdded: entry.dateAdded,
             documentData,
@@ -120,8 +120,8 @@ export async function loadSubmissionById(
 
     return {
       id: entry.id,
-      title: entry.title,
-      author: entry.author,
+      title: documentData.title || entry.title,
+      author: documentData.author || entry.author,
       similarity: entry.similarity,
       dateAdded: entry.dateAdded,
       documentData,

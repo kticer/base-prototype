@@ -3,7 +3,7 @@ import { ChatButton } from '../chatbot/ChatButton';
 import type { ScreenContext } from '../../store';
 
 type InboxNavBarProps = {
-  title: 'My Files' | 'Shared with Me' | 'Trash' | 'Settings' | 'Submissions';
+  title: 'My Files' | 'Shared with Me' | 'Trash' | 'Settings' | 'Submissions' | 'Insights';
   onSearchChange?: (value: string) => void;
   screen?: ScreenContext;
 };

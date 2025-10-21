@@ -7,7 +7,7 @@ interface PrototypeControlsProps {
   className?: string;
 }
 
-export function PrototypeControls({ children, className = 'absolute top-2 right-4' }: PrototypeControlsProps) {
+export function PrototypeControls({ children, className = 'fixed top-2 right-4' }: PrototypeControlsProps) {
   const { toggleFeatureFlagsPanel, chat, setChatDisplayMode, comments, pointAnnotations } = useStore();
 
   const clearAnnotations = () => {

@@ -14,6 +14,20 @@ import { CommonSourcesTable } from '../components/insights/CommonSourcesTable';
 import { InterventionsTable } from '../components/insights/InterventionsTable';
 import { ExportButtons } from '../components/insights/ExportButtons';
 
+// New analytics components
+import { SubmissionTimeline } from '../components/insights/SubmissionTimeline';
+import { GradingProgressTracker } from '../components/insights/GradingProgressTracker';
+import { LateSubmissionPatterns } from '../components/insights/LateSubmissionPatterns';
+import { RiskQuadrantMatrix } from '../components/insights/RiskQuadrantMatrix';
+import { StudentComparisonTable } from '../components/insights/StudentComparisonTable';
+import { SourceNetworkDiagram } from '../components/insights/SourceNetworkDiagram';
+import { SourceTypeBreakdown } from '../components/insights/SourceTypeBreakdown';
+import { CitationQualityHeatmap } from '../components/insights/CitationQualityHeatmap';
+import { OriginalityDistribution } from '../components/insights/OriginalityDistribution';
+import { PriorityQueue } from '../components/insights/PriorityQueue';
+import { ActionableInsightsPanel } from '../components/insights/ActionableInsightsPanel';
+import { RedFlagDashboard } from '../components/insights/RedFlagDashboard';
+
 export default function InsightsPage() {
   usePageTitle('Insights – iThenticate Prototype');
   const { chat } = useStore();
@@ -21,6 +35,7 @@ export default function InsightsPage() {
   const [rootItems, setRootItems] = useState<FolderOrDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [experimentalExpanded, setExperimentalExpanded] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -229,7 +244,7 @@ export default function InsightsPage() {
 
       {/* Main content area */}
       <div className="bg-gray-50">
-        <InboxNavBar title="My Files" onSearchChange={() => {}} screen="insights" />
+        <InboxNavBar title="Insights" onSearchChange={() => {}} screen="insights" />
         <InboxTabs />
 
         {/* Two-column layout: left content with padding, right chat unconstrained by content padding */}
@@ -256,17 +271,103 @@ export default function InsightsPage() {
 
             {!loading && !analyticsLoading && !error && analytics && (
               <div className="space-y-6">
-                {/* Stats Cards */}
+                {/* Top Priority: Actionable Insights */}
+                <ActionableInsightsPanel />
+
+                {/* Summary Stats Cards */}
                 <CourseStatsCards />
 
-                {/* Distribution Chart */}
-                <SimilarityDistributionChart />
+                {/* Temporal Analysis Section (label removed as requested) */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SubmissionTimeline />
+                    <GradingProgressTracker />
+                  </div>
+                </div>
 
-                {/* Common Sources */}
-                <CommonSourcesTable />
+                {/* Student Performance Section */}
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-gray-900">Student Performance Analysis</h2>
+                  <RiskQuadrantMatrix />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <PriorityQueue />
+                    <OriginalityDistribution />
+                  </div>
+                </div>
 
-                {/* Student Interventions */}
-                <InterventionsTable />
+                {/* Source Analysis Section */}
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-gray-900">Source Analysis</h2>
+                  <SourceTypeBreakdown />
+                  <CommonSourcesTable />
+                </div>
+
+                {/* Experimental Section - Collapsible */}
+                <div className="border border-gray-300 rounded-lg bg-gray-50">
+                  <button
+                    onClick={() => setExperimentalExpanded(!experimentalExpanded)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Experimental Analytics</span>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">Beta</span>
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-gray-500 transition-transform ${experimentalExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {experimentalExpanded && (
+                    <div className="p-6 pt-2 space-y-6 border-t border-gray-200">
+                      {/* Red Flag Dashboard */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Red Flag Dashboard</h3>
+                        <RedFlagDashboard />
+                      </div>
+
+                      {/* Late Submission Patterns */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Late Submission Patterns</h3>
+                        <LateSubmissionPatterns />
+                      </div>
+
+                      {/* Similarity Score Distribution */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Similarity Score Distribution</h3>
+                        <SimilarityDistributionChart />
+                      </div>
+
+                      {/* Student Comparison Table */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Student Comparison Table</h3>
+                        <StudentComparisonTable />
+                      </div>
+
+                      {/* Source Network Analysis */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Source Network Analysis</h3>
+                        <SourceNetworkDiagram />
+                      </div>
+
+                      {/* Citation Quality Heatmap */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Citation Quality Heatmap</h3>
+                        <CitationQualityHeatmap />
+                      </div>
+
+                      {/* Intervention Planning */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Intervention Planning</h3>
+                        <InterventionsTable />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

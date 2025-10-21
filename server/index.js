@@ -221,12 +221,17 @@ app.post('/api/chat', async (req, res) => {
 
     // Build conversation history for multi-turn chat
     const conversationHistory = context?.conversationHistory || [];
-    const chatHistory = conversationHistory
+    let chatHistory = conversationHistory
       .filter(msg => msg.role === 'user' || msg.role === 'assistant')
       .map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }],
       }));
+
+    // Gemini requires first message to be from user, so remove leading non-user messages
+    while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
+      chatHistory.shift();
+    }
 
     log.debug('chat:invoke_model', { id: req.id, historyLen: chatHistory.length, systemLen: sys.length, contextLen: ctxText.length });
 
@@ -361,12 +366,17 @@ app.post('/api/chat/stream', async (req, res) => {
 
     // Build conversation history for multi-turn chat
     const conversationHistory = context?.conversationHistory || [];
-    const chatHistory = conversationHistory
+    let chatHistory = conversationHistory
       .filter(msg => msg.role === 'user' || msg.role === 'assistant')
       .map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }],
       }));
+
+    // Gemini requires first message to be from user, so remove leading non-user messages
+    while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
+      chatHistory.shift();
+    }
 
     log.debug('chat_stream:invoke_model', { id: req.id, historyLen: chatHistory.length, systemLen: sys.length, contextLen: ctxText.length });
 

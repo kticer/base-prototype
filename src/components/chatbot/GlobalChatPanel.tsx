@@ -60,6 +60,18 @@ export default function GlobalChatPanel({
   const isDocumentViewer = currentScreen === 'document-viewer';
   const isOverlay = chat.displayMode === 'overlay';
 
+  // Update current screen when contextData.screen changes
+  useEffect(() => {
+    if (contextData?.screen && contextData.screen !== currentScreen) {
+      useStore.setState((state) => ({
+        chat: {
+          ...state.chat,
+          currentScreen: contextData.screen,
+        }
+      }));
+    }
+  }, [contextData?.screen, currentScreen]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: 'smooth' });
@@ -904,10 +916,9 @@ export default function GlobalChatPanel({
         // Static in flex layout but constrained to viewport with sticky top
         position: 'sticky',
         top: '5rem',
-        alignSelf: 'flex-start',
         width: `${expandedWidth}px`,
         flexShrink: 0,
-        maxHeight: 'calc(100vh - 5rem - 1rem)',
+        height: 'calc(100vh - 5rem)',
         overflow: 'hidden',
         transition: 'width 300ms ease-in-out',
       }
@@ -925,7 +936,7 @@ export default function GlobalChatPanel({
   return (
     <div
       ref={panelRef}
-      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${overlayActive ? 'shadow-2xl rounded-lg border' : integratedStatic ? 'self-start' : 'h-full'} ${
+      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${overlayActive ? 'shadow-2xl rounded-lg border' : 'h-full'} ${
         isDocumentViewer && !overlayActive ? 'animate-slide-in-left' : overlayActive ? 'animate-slide-in-right' : 'animate-slide-in-right'
       }`}
       style={panelStyle}
@@ -940,9 +951,9 @@ export default function GlobalChatPanel({
       )}
 
       {/* Chat Section */}
-      <div className={`flex flex-col min-h-0 transition-all duration-300 ease-in-out ${chat.isGeneratingArtifact ? 'w-2/5 border-r' : 'flex-1'}`}>
+      <div className={`flex flex-col min-h-0 h-full overflow-hidden transition-all duration-300 ease-in-out ${chat.isGeneratingArtifact ? 'w-2/5 border-r' : 'flex-1'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+      <div className="flex items-center justify-between p-3 border-b bg-gray-50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-lg">✨</span>
           <h3 className="font-semibold text-sm">AI Assistant</h3>
@@ -1245,7 +1256,7 @@ export default function GlobalChatPanel({
 
       {/* Prompt Suggestions - Collapsible */}
       {promptSuggestions.length > 0 && (
-        <div className="border-t bg-gray-50">
+        <div className="border-t bg-gray-50 flex-shrink-0">
           {/* Collapse toggle bar */}
           <button
             onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
@@ -1290,7 +1301,7 @@ export default function GlobalChatPanel({
       )}
 
       {/* Input */}
-      <div className="border-t p-2 bg-white flex flex-col gap-2">
+      <div className="border-t p-2 bg-white flex flex-col gap-2 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
@@ -1304,7 +1315,7 @@ export default function GlobalChatPanel({
           />
           <button
             className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2 min-w-[70px] justify-center"
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={busy || !input.trim()}
           >
             {busy ? (

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { InboxNavBar } from "../components/inbox/InboxNavBar";
+import InboxTabs from "../components/inbox/InboxTabs";
 import SubmissionTable, { type Submission } from "../components/inbox/SubmissionTable";
 import { validateFolderStructure, safeJsonParse } from "../utils/validation";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +21,6 @@ export default function InboxPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [sortKey, setSortKey] = useState<'student' | 'title' | 'submitted' | 'grade' | 'similarity' | 'aiWriting' | 'flags' | 'viewed'>('submitted');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [topTab, setTopTab] = useState<'list' | 'insights'>('list');
 
 useEffect(() => {
   const loadSubmissions = async () => {
@@ -442,30 +442,11 @@ useEffect(() => {
       {/* Main content area */}
       <div className="bg-gray-50">
         <InboxNavBar title="Submissions" onSearchChange={() => {}} screen="inbox" />
-        <div className="bg-white border-b px-6 py-2 flex gap-6 text-sm">
-          <button
-            className={`font-semibold pb-1 whitespace-nowrap ${
-              topTab === 'list' ? 'border-b-2 border-blue-500 text-gray-900' : 'text-gray-400 hover:text-gray-600'
-            }`}
-            onClick={() => setTopTab('list')}
-          >
-            Submission List
-          </button>
-          <button
-            className={`font-semibold pb-1 whitespace-nowrap ${
-              topTab === 'insights' ? 'border-b-2 border-blue-500 text-gray-900' : 'text-gray-400 hover:text-gray-600'
-            }`}
-            onClick={() => setTopTab('insights')}
-          >
-            Insights
-          </button>
-        </div>
+        <InboxTabs />
         <div className="flex items-stretch gap-0">
           {/* Left content column with its own padding */}
           <div className="flex-1 min-w-0 px-8 pb-8 pt-4">
             <div className="min-w-0">
-              {topTab === 'list' && (
-              <>
           {/* Action Toolbar */}
           <div className="bg-white px-4 py-2 border-b border-gray-200">
             <div className="flex justify-between items-center mb-4">
@@ -550,12 +531,6 @@ useEffect(() => {
               </button>
             </div>
           </div>
-            </>
-            )}
-
-            {topTab === 'insights' && (
-              <InsightsPanel submissions={filtered} />
-            )}
             </div>
           </div>
 
@@ -573,53 +548,3 @@ useEffect(() => {
   );
 }
 
-function InsightsPanel({ submissions }: { submissions: Submission[] }) {
-  const withSim = submissions.filter((s) => typeof s.similarity !== 'undefined' && s.similarity !== null);
-  const flattenSims: number[] = withSim
-    .flatMap((s) => (Array.isArray(s.similarity) ? s.similarity : [s.similarity as number]))
-    .filter((n) => typeof n === 'number') as number[];
-  const avgSim = flattenSims.length ? Math.round((flattenSims.reduce((a, n) => a + n, 0) / flattenSims.length) * 10) / 10 : 0;
-  const distribution = [
-    { label: '0–24%', count: withSim.filter((d) => topVal(d.similarity) < 25).length },
-    { label: '25–49%', count: withSim.filter((d) => topVal(d.similarity) >= 25 && topVal(d.similarity) < 50).length },
-    { label: '50–74%', count: withSim.filter((d) => topVal(d.similarity) >= 50 && topVal(d.similarity) < 75).length },
-    { label: '75–100%', count: withSim.filter((d) => topVal(d.similarity) >= 75).length },
-  ];
-
-  function topVal(v: Submission['similarity']): number {
-    if (v === null || typeof v === 'undefined') return -1;
-    const arr = Array.isArray(v) ? v : [v];
-    const vals = arr.filter((n): n is number => typeof n === 'number');
-    return vals.length ? Math.max(...vals) : -1;
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="bg-white border rounded p-4">
-        <div className="text-sm text-gray-500">Total Submissions</div>
-        <div className="text-2xl font-semibold">{submissions.length}</div>
-      </div>
-      <div className="bg-white border rounded p-4">
-        <div className="text-sm text-gray-500">Average Similarity</div>
-        <div className="text-2xl font-semibold">{avgSim}%</div>
-      </div>
-      <div className="bg-white border rounded p-4">
-        <div className="text-sm text-gray-500">Distribution</div>
-        <div className="mt-2 space-y-1">
-          {distribution.map((b) => (
-            <div key={b.label} className="flex justify-between text-sm">
-              <span className="text-gray-600">{b.label}</span>
-              <span className="font-medium">{b.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="md:col-span-3 bg-white border rounded p-4">
-        <div className="text-sm text-gray-600">
-          More detailed insights (per-assignment, per-student, common sources) can be added here.
-        </div>
-      </div>
-    </div>
-  );
-}
