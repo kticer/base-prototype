@@ -220,13 +220,7 @@ export default function InsightsPage() {
     return suggestions.slice(0, 4); // Limit to 4 suggestions
   }, [insightsMetrics]);
 
-  // Calculate padding for main content when chat is open in shrink mode
-  const chatPadding = (() => {
-    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
-    const baseWidth = chat.panelWidth;
-    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
-    return expandedWidth;
-  })();
+  // No global padding; chat integrates into layout below nav bars
 
   return (
     <div className="min-h-screen w-full relative">
@@ -234,10 +228,7 @@ export default function InsightsPage() {
       <PrototypeControls />
 
       {/* Main content area */}
-      <div
-        className="bg-gray-50 transition-all duration-300"
-        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
-      >
+      <div className="bg-gray-50">
         <InboxNavBar title="My Files" onSearchChange={() => {}} screen="insights" />
         <InboxTabs />
 
@@ -276,14 +267,15 @@ export default function InsightsPage() {
               <InterventionsTable />
             </div>
           )}
+          {/* Content + Chat: flex layout below navs */}
+          <div className="mt-6 flex items-stretch gap-0">
+            <div className="flex-1 min-w-0">
+              {/* The analytics content above is part of this container */}
+            </div>
+            <GlobalChatPanel contextData={chatContext} promptSuggestions={promptSuggestions} />
+          </div>
         </div>
       </div>
-
-      {/* Global Chat Panel */}
-      <GlobalChatPanel
-        contextData={chatContext}
-        promptSuggestions={promptSuggestions}
-      />
 
       {/* Feature Flags Modal */}
       <FeatureFlagsModal />

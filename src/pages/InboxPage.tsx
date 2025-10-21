@@ -102,6 +102,44 @@ useEffect(() => {
         grade: null,
         submittedAt: dateMap[id] ?? '',
       }));
+
+      // Prototype overrides: ensure specific grading and AI writing patterns for the first 8 submissions
+      if (flat.length >= 1) {
+        // Choose the first 8 (or fewer if not available)
+        const target = flat.slice(0, Math.min(8, flat.length));
+
+        // Grades: 5 graded (2 A's, 1 B, 1 C, plus 1 additional B for prototype completeness)
+        const plannedGrades: number[] = [96, 92, 85, 76, 88];
+        for (let i = 0; i < target.length && i < plannedGrades.length; i++) {
+          target[i].grade = plannedGrades[i];
+        }
+
+        // AI writing: 1 at 100%, 4 more between 17% and 30%
+        const aiWritingValues: number[] = [100, 28, 25, 22, 17];
+        for (let i = 0; i < target.length && i < aiWritingValues.length; i++) {
+          target[i].aiWriting = aiWritingValues[i];
+        }
+
+        // Special case: the 100% AI writing submission -> 0% similarity and 1 flag
+        const idx100 = target.findIndex(s => s.aiWriting === 100);
+        if (idx100 >= 0) {
+          target[idx100].similarity = 0;
+          target[idx100].flags = 1;
+        }
+
+        // Write back to flat
+        for (let i = 0; i < target.length; i++) {
+          flat[i] = target[i];
+        }
+      }
+
+      // Specific prototype rule: make "The 2018 Golden Globes Jam" ungraded
+      try {
+        const jamIdx = flat.findIndex((s) => (s.title || '').toLowerCase() === 'the 2018 golden globes jam');
+        if (jamIdx >= 0) {
+          flat[jamIdx].grade = null;
+        }
+      } catch {}
       setSubmissions(flat);
       setLoading(false);
     } catch (error) {
@@ -221,15 +259,123 @@ useEffect(() => {
     avgSimilarity: inboxMetrics.avgSimilarity,
     // Computed metrics for instant, accurate answers
     metrics: inboxMetrics,
-    // Include submission list for flexible queries
-    submissions: submissions.map(s => ({
-      id: s.id,
-      title: s.title,
-      author: s.author,
-      similarity: getSimilarityScalar(s.similarity),
-      grade: s.grade,
-      submittedAt: s.submittedAt,
-    })).slice(0, 50), // Limit to first 50 to avoid context overflow
+    // Deterministic triage scoring weights (for transparency)
+    triageWeights: {
+      flagWeight: 100,
+      aiHighBonus: 80,
+      aiFactor: 0.6,
+      simFactor: 0.8,
+      simHighBonusThreshold: 40,
+      simHighBonus: 20,
+      ungradedBonus: 30,
+      recencyMaxBonus: 30,
+      recencyHalfLifeDays: 7,
+    },
+    // Submissions with computed priority score and rank (capped to 50)
+    submissions: (() => {
+      const toScalar = (val: number | number[] | null | undefined) => {
+        if (val === null || typeof val === 'undefined') return null;
+        return Array.isArray(val) ? Math.max(...val) : Number(val);
+      };
+      const daysSince = (iso?: string) => {
+        if (!iso) return Infinity;
+        const t = new Date(iso).getTime();
+        if (Number.isNaN(t)) return Infinity;
+        const ms = Date.now() - t;
+        return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+      };
+      const W = {
+        flagWeight: 100,
+        aiHighBonus: 80,
+        aiFactor: 0.6,
+        simFactor: 0.8,
+        simHighBonusThreshold: 40,
+        simHighBonus: 20,
+        ungradedBonus: 30,
+        recencyMaxBonus: 30,
+        recencyHalfLifeDays: 7,
+      };
+      const withScores = submissions.map((s) => {
+        const sim = getSimilarityScalar(s.similarity);
+        const ai = toScalar(s.aiWriting);
+        const flags = typeof s.flags === 'number' ? s.flags : 0;
+        const ungraded = s.grade === null || typeof s.grade === 'undefined';
+        const age = daysSince(s.submittedAt);
+        let score = 0;
+        score += flags * W.flagWeight;
+        if (typeof ai === 'number') score += ai >= 90 ? W.aiHighBonus : ai * W.aiFactor;
+        if (sim > Number.NEGATIVE_INFINITY) {
+          score += sim * W.simFactor;
+          if (sim >= W.simHighBonusThreshold) score += W.simHighBonus;
+        }
+        if (ungraded) score += W.ungradedBonus;
+        const recency = Math.max(0, W.recencyMaxBonus - Math.floor((age / W.recencyHalfLifeDays) * W.recencyMaxBonus));
+        score += recency;
+        return { s, score };
+      });
+      const ranked = withScores
+        .sort((a, b) => b.score - a.score || (new Date(b.s.submittedAt).getTime() - new Date(a.s.submittedAt).getTime()))
+        .map((entry, idx) => ({ entry, rank: idx + 1 }));
+      return ranked.map(({ entry, rank }) => ({
+        id: entry.entry?.s?.id ?? entry.s.id,
+        title: entry.entry?.s?.title ?? entry.s.title,
+        author: entry.entry?.s?.author ?? entry.s.author,
+        similarity: getSimilarityScalar(entry.entry?.s?.similarity ?? entry.s.similarity),
+        aiWriting: toScalar(entry.entry?.s?.aiWriting ?? entry.s.aiWriting),
+        flags: typeof (entry.entry?.s?.flags ?? entry.s.flags) === 'number' ? (entry.entry?.s?.flags ?? entry.s.flags)! : 0,
+        grade: entry.entry?.s?.grade ?? entry.s.grade,
+        submittedAt: entry.entry?.s?.submittedAt ?? entry.s.submittedAt,
+        priorityScore: Math.round(entry.score * 10) / 10,
+        priorityRank: rank,
+      })).slice(0, 50);
+    })(),
+    // Convenience: explicit priority order as IDs and brief summary
+    topPriorityIds: (() => {
+      const toScalar = (val: number | number[] | null | undefined) => {
+        if (val === null || typeof val === 'undefined') return null;
+        return Array.isArray(val) ? Math.max(...val) : Number(val);
+      };
+      const daysSince = (iso?: string) => {
+        if (!iso) return Infinity;
+        const t = new Date(iso).getTime();
+        if (Number.isNaN(t)) return Infinity;
+        const ms = Date.now() - t;
+        return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+      };
+      const W = {
+        flagWeight: 100,
+        aiHighBonus: 80,
+        aiFactor: 0.6,
+        simFactor: 0.8,
+        simHighBonusThreshold: 40,
+        simHighBonus: 20,
+        ungradedBonus: 30,
+        recencyMaxBonus: 30,
+        recencyHalfLifeDays: 7,
+      };
+      return submissions
+        .map((s) => {
+          const sim = getSimilarityScalar(s.similarity);
+          const ai = toScalar(s.aiWriting);
+          const flags = typeof s.flags === 'number' ? s.flags : 0;
+          const ungraded = s.grade === null || typeof s.grade === 'undefined';
+          const age = daysSince(s.submittedAt);
+          let score = 0;
+          score += flags * W.flagWeight;
+          if (typeof ai === 'number') score += ai >= 90 ? W.aiHighBonus : ai * W.aiFactor;
+          if (sim > Number.NEGATIVE_INFINITY) {
+            score += sim * W.simFactor;
+            if (sim >= W.simHighBonusThreshold) score += W.simHighBonus;
+          }
+          if (ungraded) score += W.ungradedBonus;
+          const recency = Math.max(0, W.recencyMaxBonus - Math.floor((age / W.recencyHalfLifeDays) * W.recencyMaxBonus));
+          score += recency;
+          return { id: s.id, score, submittedAt: s.submittedAt };
+        })
+        .sort((a, b) => b.score - a.score || (new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()))
+        .map((x) => x.id)
+        .slice(0, 50);
+    })(),
   };
 
   // Dynamic, context-aware suggestions based on inbox state
@@ -286,14 +432,7 @@ useEffect(() => {
 
   if (loading) return <div className="p-4">Loading...</div>;
 
-  // Calculate padding for main content when chat is open in shrink mode
-  const chatPadding = (() => {
-    if (!chat.isOpen || chat.displayMode !== 'shrink') return 0;
-
-    const baseWidth = chat.panelWidth;
-    const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
-    return expandedWidth;
-  })();
+  // No padding hack; chat integrates into layout below nav bars
 
   return (
     <div className="min-h-screen w-full relative">
@@ -301,10 +440,7 @@ useEffect(() => {
       <PrototypeControls />
 
       {/* Main content area */}
-      <div
-        className="bg-gray-50 transition-all duration-300"
-        style={chatPadding > 0 ? { paddingRight: `${chatPadding}px` } : {}}
-      >
+      <div className="bg-gray-50">
         <InboxNavBar title="Submissions" onSearchChange={() => {}} screen="inbox" />
         <div className="bg-white border-b px-6 py-2 flex gap-6 text-sm">
           <button
@@ -325,8 +461,10 @@ useEffect(() => {
           </button>
         </div>
         <div className="px-8 pb-8 pt-4">
-          {topTab === 'list' && (
-          <>
+          <div className="flex items-stretch gap-0">
+            <div className="flex-1 min-w-0">
+            {topTab === 'list' && (
+            <>
           {/* Action Toolbar */}
           <div className="bg-white px-4 py-2 border-b border-gray-200">
             <div className="flex justify-between items-center mb-4">
@@ -411,20 +549,22 @@ useEffect(() => {
               </button>
             </div>
           </div>
-          </>
-          )}
+            </>
+            )}
 
-          {topTab === 'insights' && (
-            <InsightsPanel submissions={filtered} />
-          )}
+            {topTab === 'insights' && (
+              <InsightsPanel submissions={filtered} />
+            )}
+            </div>
+
+            {/* Chat integrated as sibling in layout (shrink mode) */}
+            <GlobalChatPanel
+              contextData={chatContext}
+              promptSuggestions={promptSuggestions}
+            />
+          </div>
         </div>
       </div>
-
-      {/* Global Chat Panel */}
-      <GlobalChatPanel
-        contextData={chatContext}
-        promptSuggestions={promptSuggestions}
-      />
 
       {/* Feature Flags Modal */}
       <FeatureFlagsModal />

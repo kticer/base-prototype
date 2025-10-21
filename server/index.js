@@ -161,6 +161,9 @@ app.post('/api/chat', async (req, res) => {
       'inbox': [
         'Help instructors manage their student submissions inbox.',
         'Use pre-computed metrics (metrics.total, metrics.ungraded, metrics.highSimilarity, etc.).',
+        ''Use provided triageWeights and submissions.priorityScore/priorityRank to determine review order. Do not recompute from scratch.',
+        'You may also use topPriorityIds for quick ordering.',
+        'Prioritize by flags', AI writing risk, similarity, ungraded status, and recency as reflected in priorityScore. Use priorityRank when listing.',
         'For "show submissions" queries, generate table artifacts with type:"table". Do not generate rubrics for inbox.',
       ],
       'settings': [

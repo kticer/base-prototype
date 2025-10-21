@@ -892,21 +892,27 @@ export default function GlobalChatPanel({
   const baseWidth = chat.panelWidth;
   const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
 
-  // When an artifact is shown, force overlay to avoid pushing the document layout
+  // When an artifact is shown, force overlay to avoid pushing layout
   const overlayActive = isOverlay || chat.isGeneratingArtifact;
+  // Use integrated (static in layout) when in shrink mode and not overlaying
+  const integratedStatic = chat.displayMode === 'shrink' && !overlayActive;
 
   // In document viewer shrink mode: static positioning in flex layout
-  // In overlay mode or other screens: use fixed positioning
-  const panelStyle: React.CSSProperties = isDocumentViewer && !overlayActive
+  // Integrated static in layout when in shrink mode; otherwise fixed overlay below nav bars
+  const panelStyle: React.CSSProperties = integratedStatic
     ? {
-        // Document viewer, shrink mode: static in flex layout
+        // Static in flex layout but constrained to viewport with sticky top
+        position: 'sticky',
+        top: '5rem',
+        alignSelf: 'flex-start',
         width: `${expandedWidth}px`,
         flexShrink: 0,
+        maxHeight: 'calc(100vh - 5rem - 1rem)',
+        overflow: 'hidden',
         transition: 'width 300ms ease-in-out',
       }
-    : overlayActive
-    ? {
-        // Overlay mode (all screens): fixed with rounded corners
+    : {
+        // Overlay panel below nav bars
         position: 'fixed',
         right: '1rem',
         top: '5rem',
@@ -914,28 +920,18 @@ export default function GlobalChatPanel({
         width: `${expandedWidth}px`,
         zIndex: 1000,
         transition: 'transform 300ms ease-in-out, width 300ms ease-in-out',
-      }
-    : {
-        // Other screens, shrink mode: fixed full height
-        position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: `${expandedWidth}px`,
-        zIndex: 50, // Higher than table overflow menus
-        transition: 'transform 300ms ease-in-out, width 300ms ease-in-out',
       };
 
   return (
     <div
       ref={panelRef}
-      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${overlayActive ? 'shadow-2xl rounded-lg border' : 'h-full'} ${
+      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${overlayActive ? 'shadow-2xl rounded-lg border' : integratedStatic ? 'self-start' : 'h-full'} ${
         isDocumentViewer && !overlayActive ? 'animate-slide-in-left' : overlayActive ? 'animate-slide-in-right' : 'animate-slide-in-right'
       }`}
       style={panelStyle}
     >
-      {/* Resize handle (only in shrink mode) */}
-      {!overlayActive && (
+      {/* Resize handle (only in integrated shrink mode) */}
+      {integratedStatic && (
         <div
           className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
           onMouseDown={handleResizeStart}

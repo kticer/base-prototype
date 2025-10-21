@@ -26,6 +26,7 @@ export default function Markdown({ text, matchCards, onCitationClick }: Markdown
 type TextBlock =
   | { type: 'code'; language?: string; content: string }
   | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'table'; headers: string[]; alignments: ('left' | 'center' | 'right')[]; rows: string[][] }
   | { type: 'paragraph'; content: string };
 
 function splitIntoBlocks(text: string): TextBlock[] {
@@ -50,6 +51,38 @@ function splitIntoBlocks(text: string): TextBlock[] {
       if (i < lines.length && /^\s*```\s*$/.test(lines[i])) i++;
       out.push({ type: 'code', language: lang, content: buf.join('\n') });
       continue;
+    }
+
+    // Table detection (markdown table with pipes)
+    if (/^\s*\|/.test(line)) {
+      const headerLine = line;
+      // Check if next line is separator (|:---|:---:|---:|)
+      if (i + 1 < lines.length && /^\s*\|/.test(lines[i + 1]) && /[-:]/.test(lines[i + 1])) {
+        const separatorLine = lines[i + 1];
+        i += 2; // Skip header and separator
+
+        // Parse headers
+        const headers = headerLine.split('|').map(h => h.trim()).filter(h => h !== '');
+
+        // Parse alignments from separator
+        const alignments = separatorLine.split('|').map(sep => {
+          const trimmed = sep.trim();
+          if (trimmed.startsWith(':') && trimmed.endsWith(':')) return 'center';
+          if (trimmed.endsWith(':')) return 'right';
+          return 'left';
+        }).filter((_, idx) => idx < headers.length);
+
+        // Parse rows
+        const rows: string[][] = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) {
+          const rowCells = lines[i].split('|').map(c => c.trim()).filter(c => c !== '');
+          rows.push(rowCells);
+          i++;
+        }
+
+        out.push({ type: 'table', headers, alignments, rows });
+        continue;
+      }
     }
 
     // List (unordered or ordered)
@@ -149,6 +182,47 @@ function Block({ block, matchCards, onCitationClick }: { block: TextBlock; match
           })}
         </ul>
       );
+    case 'table':
+      return (
+        <div className="overflow-x-auto my-4">
+          <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
+            <thead className="bg-gray-50">
+              <tr>
+                {block.headers.map((header, i) => {
+                  const alignment = block.alignments[i] || 'left';
+                  const alignClass = alignment === 'center' ? 'text-center' : alignment === 'right' ? 'text-right' : 'text-left';
+                  return (
+                    <th
+                      key={i}
+                      className={`px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider ${alignClass}`}
+                    >
+                      <Inline text={header} matchCards={matchCards} onCitationClick={onCitationClick} />
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {block.rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="hover:bg-gray-50">
+                  {row.map((cell, cellIndex) => {
+                    const alignment = block.alignments[cellIndex] || 'left';
+                    const alignClass = alignment === 'center' ? 'text-center' : alignment === 'right' ? 'text-right' : 'text-left';
+                    return (
+                      <td
+                        key={cellIndex}
+                        className={`px-4 py-3 text-sm text-gray-900 ${alignClass}`}
+                      >
+                        <Inline text={cell || ''} matchCards={matchCards} onCitationClick={onCitationClick} />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     case 'paragraph':
     default:
       // Heading detection at paragraph start
@@ -158,8 +232,57 @@ function Block({ block, matchCards, onCitationClick }: { block: TextBlock; match
         const Tag = (`h${level}` as unknown) as keyof JSX.IntrinsicElements;
         return <Tag className="font-semibold"><Inline text={h[2]} matchCards={matchCards} onCitationClick={onCitationClick} /></Tag>;
       }
+      // Detect inline metrics like "Overall Metrics: Total: 8 Graded: 4 ..." and render as a list
+      const metricsEl = tryRenderInlineMetrics(block.content, matchCards, onCitationClick);
+      if (metricsEl) return metricsEl;
       return <p><Inline text={block.content} matchCards={matchCards} onCitationClick={onCitationClick} /></p>;
   }
+}
+
+// Heuristic: turn inline "Label: value" sequences into a readable list
+function tryRenderInlineMetrics(content: string, matchCards?: any[], onCitationClick?: (sourceId: string) => void): React.ReactElement | null {
+  const text = content.trim();
+  // Only attempt if there's at least 3 colons (multiple metrics) or it starts with Overall Metrics
+  const colonCount = (text.match(/:/g) || []).length;
+  if (!(colonCount >= 3 || /^overall metrics:/i.test(text))) return null;
+
+  // Separate optional prefix (e.g., "Overall Metrics:") from the pairs
+  const prefixMatch = text.match(/^(.*?metrics:)\s*(.*)$/i);
+  let heading: string | null = null;
+  let rest = text;
+  if (prefixMatch) {
+    heading = prefixMatch[1];
+    rest = prefixMatch[2];
+  }
+
+  // Extract pairs: Label: Value (stop value before the next Label: or end)
+  const items: { label: string; value: string }[] = [];
+  const regex = /([A-Z][A-Za-z0-9 ()%<>=–\-]+?):\s*([^:]+?)(?=(?:\s+[A-Z][A-Za-z0-9 ()%<>=–\-]+?:|\s*$))/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(rest)) !== null) {
+    const label = m[1].trim();
+    const value = m[2].trim();
+    // Guard: avoid capturing URLs or malformed pieces
+    if (label && value) items.push({ label, value });
+  }
+
+  if (items.length < 3) return null; // Not enough structure to justify list
+
+  return (
+    <div className="space-y-2">
+      {heading && (
+        <div className="font-semibold text-gray-900"><Inline text={heading} matchCards={matchCards} onCitationClick={onCitationClick} /></div>
+      )}
+      <ul className="list-disc pl-5 space-y-1">
+        {items.map((it, idx) => (
+          <li key={idx}>
+            <span className="font-medium"><Inline text={`${it.label}:`} matchCards={matchCards} onCitationClick={onCitationClick} /> </span>
+            <Inline text={it.value} matchCards={matchCards} onCitationClick={onCitationClick} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function Inline({ text, matchCards, onCitationClick }: { text: string; matchCards?: any[]; onCitationClick?: (sourceId: string) => void }) {
@@ -312,4 +435,3 @@ function sanitizeUrl(url: string): string | null {
     return null;
   }
 }
-
