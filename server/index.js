@@ -161,9 +161,10 @@ app.post('/api/chat', async (req, res) => {
       'inbox': [
         'Help instructors manage their student submissions inbox.',
         'Use pre-computed metrics (metrics.total, metrics.ungraded, metrics.highSimilarity, etc.).',
-        ''Use provided triageWeights and submissions.priorityScore/priorityRank to determine review order. Do not recompute from scratch.',
+        'Use provided triageWeights and submissions.priorityScore/priorityRank to determine review order. Do not recompute from scratch.',
         'You may also use topPriorityIds for quick ordering.',
-        'Prioritize by flags', AI writing risk, similarity, ungraded status, and recency as reflected in priorityScore. Use priorityRank when listing.',
+        'Prioritize by flags, AI writing risk, similarity, ungraded status, and recency as reflected in priorityScore. Use priorityRank when listing.',
+        'If AI writing values are provided in submissions.aiWriting, reference those values as pre-computed indicators; do not claim you cannot access them and do not perform detection.',
         'For "show submissions" queries, generate table artifacts with type:"table". Do not generate rubrics for inbox.',
       ],
       'settings': [
@@ -211,7 +212,9 @@ app.post('/api/chat', async (req, res) => {
       light.pages?.last && light.pages.last.pageNumber !== light.pages.current?.pageNumber && light.pages.last.pageNumber !== light.pages.first?.pageNumber ? `\nLast Page Content (Page ${light.pages.last.pageNumber}):\n${light.pages.last.content}` : '',
       // Inbox-specific context with computed metrics
       light.metrics ? `Metrics: ${JSON.stringify(light.metrics)}` : '',
+      light.triageWeights ? `TriageWeights: ${JSON.stringify(light.triageWeights)}` : '',
       light.submissions?.length > 0 ? `Submissions: ${JSON.stringify(light.submissions)}` : '',
+      Array.isArray(light.topPriorityIds) ? `TopPriorityIds: ${JSON.stringify(light.topPriorityIds)}` : '',
       light.totalSubmissions !== undefined ? `Total Submissions: ${light.totalSubmissions}` : '',
       light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
     ].filter(Boolean).join('\n');
@@ -349,7 +352,9 @@ app.post('/api/chat/stream', async (req, res) => {
       light.pages?.last && light.pages.last.pageNumber !== light.pages.current?.pageNumber && light.pages.last.pageNumber !== light.pages.first?.pageNumber ? `\nLast Page Content (Page ${light.pages.last.pageNumber}):\n${light.pages.last.content}` : '',
       // Inbox-specific context with computed metrics
       light.metrics ? `Metrics: ${JSON.stringify(light.metrics)}` : '',
+      light.triageWeights ? `TriageWeights: ${JSON.stringify(light.triageWeights)}` : '',
       light.submissions?.length > 0 ? `Submissions: ${JSON.stringify(light.submissions)}` : '',
+      Array.isArray(light.topPriorityIds) ? `TopPriorityIds: ${JSON.stringify(light.topPriorityIds)}` : '',
       light.totalSubmissions !== undefined ? `Total Submissions: ${light.totalSubmissions}` : '',
       light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
     ].filter(Boolean).join('\n');
@@ -496,13 +501,20 @@ function lighten(ctx) {
     } : null,
     // Inbox context
     metrics: metrics || undefined, // Computed metrics for instant answers
+    triageWeights: ctx.triageWeights || undefined,
+    topPriorityIds: Array.isArray(ctx.topPriorityIds) ? ctx.topPriorityIds.slice(0, 50) : undefined,
     submissions: Array.isArray(submissions)
       ? submissions.slice(0, 30).map(s => ({
           id: s.id,
           title: String(s.title || '').slice(0, 100),
           author: String(s.author || '').slice(0, 50),
           similarity: s.similarity,
+          aiWriting: typeof s.aiWriting !== 'undefined' ? s.aiWriting : undefined,
+          flags: typeof s.flags === 'number' ? s.flags : undefined,
+          priorityScore: typeof s.priorityScore === 'number' ? s.priorityScore : undefined,
+          priorityRank: typeof s.priorityRank === 'number' ? s.priorityRank : undefined,
           grade: s.grade,
+          submittedAt: s.submittedAt,
         }))
       : [],
     totalSubmissions,

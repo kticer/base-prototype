@@ -79,9 +79,24 @@ export type GeminiContext = {
     title: string;
     author: string;
     similarity: number;
+    aiWriting?: number | number[] | null;
+    flags?: number;
+    priorityScore?: number;
+    priorityRank?: number;
     grade: any;
     submittedAt: string;
   }>;
+  triageWeights?: {
+    flagWeight: number;
+    aiHighBonus: number;
+    aiFactor: number;
+    simFactor: number;
+    simHighBonusThreshold: number;
+    simHighBonus: number;
+    ungradedBonus: number;
+    recencyMaxBonus: number;
+    recencyHalfLifeDays: number;
+  };
   // Insights-specific context
   courseAnalytics?: any;
   totalDocuments?: number;
@@ -122,6 +137,25 @@ export async function askGemini(prompt: string, ctx: GeminiContext): Promise<{ t
 
   // Inbox-specific responses
   if (screen === 'inbox' && metrics) {
+    // AI writing awareness (mock)
+    if (p.includes('ai writing') || p.includes('ai-generated') || p.includes('ai generated') || p.includes('ai detection') || p.includes('detect ai')) {
+      const subs = ctx.submissions || [];
+      const toScalar = (v: number | number[] | null | undefined) => v == null ? null : (Array.isArray(v) ? Math.max(...v) : Number(v));
+      const withAi = subs
+        .map(s => ({ id: s.id, title: s.title, author: s.author, ai: toScalar(s.aiWriting) }))
+        .filter(s => typeof s.ai === 'number') as Array<{id:string;title:string;author:string;ai:number}>;
+      if (withAi.length > 0) {
+        const avg = Math.round((withAi.reduce((sum, s) => sum + s.ai, 0) / withAi.length) * 10) / 10;
+        const veryHigh = withAi.filter(s => s.ai >= 90).length;
+        const examples = withAi
+          .sort((a, b) => b.ai - a.ai)
+          .slice(0, 3)
+          .map(s => `${s.title} by ${s.author} — ${s.ai}%`)
+          .join('; ');
+        return { text: `AI writing indicators are available for ${withAi.length} submissions. Average indicator: ${avg}%. ${veryHigh} submission${veryHigh === 1 ? '' : 's'} at or above 90% (very high). Top examples: ${examples}.`, isReal: false };
+      }
+      return { text: `No AI writing indicators are present in the current inbox context.`, isReal: false };
+    }
     if (p.includes('average') || p.includes('avg')) {
       return { text: `The average similarity score across ${metrics.total} submissions is ${metrics.avgSimilarity}%.`, isReal: false };
     }
