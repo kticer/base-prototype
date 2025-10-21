@@ -15,11 +15,12 @@ export interface ParsedChatResponse {
 
 /**
  * Parse AI response for embedded action buttons
- * Format: [ACTION:action_type|Label Text|optional_payload]
+ * Format: [ACTION:action_type|Label Text|optional_payload|optional_param2|...]
  *
  * Examples:
  * - [ACTION:draft_comment|Help me draft a comment]
  * - [ACTION:highlight_text|Show me the issue|mc1]
+ * - [ACTION:add_comment|Label|text|highlightId|page]
  * - [ACTION:navigate|Go to Grading tab|Grading]
  */
 export function parseActionsFromResponse(text: string): ParsedChatResponse {
@@ -29,12 +30,25 @@ export function parseActionsFromResponse(text: string): ParsedChatResponse {
   let match;
 
   while ((match = actionRegex.exec(text)) !== null) {
-    const [, type, label, payload] = match;
+    const [, type, label, payloadStr] = match;
+
+    // For add_comment actions, payload may contain multiple pipe-separated values: text|highlightId|page
+    // Parse them into an object if multiple values are present
+    let payload: any = payloadStr || undefined;
+
+    if (type === 'add_comment' && payloadStr && payloadStr.includes('|')) {
+      const parts = payloadStr.split('|');
+      payload = {
+        text: parts[0] || '',
+        highlightId: parts[1] || undefined,
+        page: parts[2] ? parseInt(parts[2]) : undefined,
+      };
+    }
 
     // Create a unique key for deduplication
     // Use type + payload (if exists) to identify duplicates
     // This allows same type with different payloads, but prevents exact duplicates
-    const uniqueKey = payload ? `${type}:${payload}` : `${type}:${label}`;
+    const uniqueKey = payloadStr ? `${type}:${payloadStr}` : `${type}:${label}`;
 
     // Skip if we've already seen this exact action
     if (seen.has(uniqueKey)) {
@@ -46,7 +60,7 @@ export function parseActionsFromResponse(text: string): ParsedChatResponse {
     actions.push({
       type: type as ChatAction['type'],
       label,
-      payload: payload || undefined,
+      payload,
     });
   }
 

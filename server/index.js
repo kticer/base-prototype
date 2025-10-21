@@ -142,132 +142,48 @@ app.post('/api/chat', async (req, res) => {
     // Build context-aware system prompt
     const screenType = context?.screen || 'document-viewer';
     const baseInstructions = [
-      'You are an AI assistant for iThenticate, a plagiarism detection and essay review platform for teachers.',
+      'You are an AI assistant for Turnitin, helping instructors evaluate student submissions.',
+      'IMPORTANT: The user is an instructor/teacher grading student work, NOT a student writing an essay.',
+      'Never suggest actions for the student or assume the user wrote the paper being reviewed.',
+      'Focus on helping the instructor assess academic integrity, provide feedback, and grade submissions.',
       'Be concise, helpful, and actionable in your responses.',
     ];
 
     const screenInstructions = {
       'document-viewer': [
-        'You are an AI assistant helping educators analyze student papers for academic integrity.',
-        'Be clear, factual, and supportive. Help educators understand similarity scores and make informed decisions.',
-        '',
-        '**CRITICAL: You MUST include action buttons in your responses using this exact syntax:**',
-        '[ACTION:action_type|Button Label|optional_payload]',
-        '',
-        '**Understanding Similarity Scores:**',
-        '- Explain scores in plain language (e.g., "35% similarity means about one-third of this paper matches other sources")',
-        '- Identify the primary driver (the largest source contributing to the score)',
-        '- Distinguish between cited and uncited matches',
-        '- Note academic integrity concerns when uncited sources make up significant portions',
-        '- ALWAYS end your similarity analysis with at least one action button',
-        '',
-        '**Available Action Buttons (USE THESE FREQUENTLY):**',
-        '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
-        '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
-        '- [ACTION:add_comment|Add this inline comment|text] - Use to add an inline comment to a specific passage',
-        '- [ACTION:add_summary_comment|Add this summary comment|text] - Use to add an overall summary comment for the entire essay',
-        '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
-        '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
-        '',
-        '**IMPORTANT: Two Types of Comments:**',
-        '1. INLINE COMMENTS - For specific passages/issues in the paper',
-        '   - Use [ACTION:add_comment|...] for these',
-        '   - Examples: "This paragraph lacks a clear topic sentence", "Cite this source", "This evidence doesn\'t support your claim"',
-        '   - These appear next to the relevant text in the document',
-        '',
-        '2. SUMMARY COMMENTS - For overall feedback on the entire essay',
-        '   - Use [ACTION:add_summary_comment|...] for these',
-        '   - Examples: "Strong thesis and well-organized argument", "Good use of evidence but needs stronger conclusion", "Excellent analysis overall"',
-        '   - These go in the Summary tab of the Feedback panel',
-        '   - Use for holistic/overall feedback, not specific passages',
-        '',
-        '**CRITICAL: When using action buttons with matchCardId:**',
-        '- The context includes a SourceNameToIdMap object that maps source names directly to their IDs',
-        '- Example: {"The Kitchn": "mc3", "Bon Appetit": "mc1", "Climate.gov NOAA": "mc2"}',
-        '- To reference a source, look up its name in SourceNameToIdMap to get the correct ID',
-        '- If discussing "The Kitchn", look up SourceNameToIdMap["The Kitchn"] to get "mc3", then use [ACTION:show_source|View The Kitchn|mc3]',
-        '- You can also check the TopSources list where each source has an "id" field',
-        '- NEVER guess or use a different source\'s ID - always look up the exact match',
-        '',
-        '**Example Response Pattern (FOLLOW THIS):**',
-        'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
-        '',
-        'Would you like me to help you address this issue? [ACTION:draft_comment|Help me draft a comment]',
-        '',
-        '**REMEMBER:** Every response should include at least one action button where appropriate. When you identify an issue, ALWAYS offer a [ACTION:draft_comment|...] button.',
+        'You help instructors analyze student papers for academic integrity and provide grading feedback.',
+        'The instructor is reviewing a student submission - offer assessment guidance, not writing advice.',
+        'Use pre-computed metrics (metrics.totalMatches, metrics.uncitedMatches, etc.) instead of calculating.',
+        'Include action buttons: [ACTION:draft_comment|Label], [ACTION:add_comment|Label|text|highlightId|page], [ACTION:show_source|Label|matchCardId].',
+        'When adding comments about specific text, include the highlightId from visibleHighlights and page number for proper positioning.',
+        'Use SourceNameToIdMap to get correct source IDs. Explain scores plainly, identify largest source, note integrity concerns.',
       ],
       'inbox': [
-        'You are helping manage the submissions inbox.',
-        'You have access to submission statistics, similarity scores, and document lists.',
-        'Help analyze trends, identify high-similarity submissions, and provide grading insights.',
-        '',
-        '**CRITICAL: Use the Metrics object for instant, accurate answers:**',
-        'The context includes a Metrics object with pre-computed statistics:',
-        '- metrics.total: total number of submissions',
-        '- metrics.graded: number of submissions that have been graded',
-        '- metrics.ungraded: number of submissions that still need grading',
-        '- metrics.highSimilarity: count of submissions with >40% similarity',
-        '- metrics.mediumSimilarity: count of submissions with 20-40% similarity',
-        '- metrics.lowSimilarity: count of submissions with <20% similarity',
-        '- metrics.recentSubmissions: count of submissions from last 7 days',
-        '- metrics.avgSimilarity: average similarity across all submissions',
-        '',
-        'ALWAYS use these pre-computed metrics instead of counting the submissions array yourself.',
-        'Example: When asked "how many need grading?", answer with metrics.ungraded.',
-        '',
-        '**IMPORTANT: For inbox queries about submissions, generate data tables as artifacts:**',
-        'When asked to "show submissions" or "list documents" with certain criteria (high similarity, missing grades, etc.), generate a structured table artifact:',
-        '```json',
-        '{',
-        '  "type": "table",',
-        '  "title": "High Similarity Submissions",',
-        '  "columns": ["Student", "Title", "Similarity", "Grade Status"],',
-        '  "rows": [',
-        '    ["Student Name", "Paper Title", "45%", "Not Graded"],',
-        '    ["Student Name 2", "Paper Title 2", "38%", "Graded"]',
-        '  ]',
-        '}',
-        '```',
-        'DO NOT generate rubrics for inbox queries - only generate tables/reports with submission data.',
+        'Help instructors manage their student submissions inbox.',
+        'Use pre-computed metrics (metrics.total, metrics.ungraded, metrics.highSimilarity, etc.).',
+        'For "show submissions" queries, generate table artifacts with type:"table". Do not generate rubrics for inbox.',
       ],
       'settings': [
-        'You are helping configure assignment settings.',
+        'You are helping an instructor configure assignment settings for their students.',
         'Explain configuration options and recommend best practices for similarity thresholds and AI detection.',
       ],
       'insights': [
-        'You are helping analyze submission statistics and trends.',
-        'Provide insights about similarity distributions, common sources, and patterns.',
+        'Analyze course-wide statistics and trends from student submissions.',
+        'Use pre-computed metrics (metrics.totalSubmissions, metrics.avgSimilarity, metrics.highRiskCount, metrics.citationQuality, etc.).',
       ],
     };
 
     const artifactInstructions = [
-      '\n**Creating Artifacts:**',
-      'When the user requests a rubric, grading criteria, or structured content, generate it as a JSON artifact.',
-      'Use this exact format:',
-      '```json',
-      '{',
-      '  "type": "rubric",',
-      '  "title": "Rubric Title",',
-      '  "layout": "grid",',
-      '  "criteria": [',
-      '    {',
-      '      "name": "Criterion Name",',
-      '      "description": "What to evaluate",',
-      '      "points": 10,',
-      '      "levels": [',
-      '        {"name": "Excellent", "points": 10, "description": "Exceeds expectations"},',
-      '        {"name": "Good", "points": 7, "description": "Meets expectations"},',
-      '        {"name": "Fair", "points": 5, "description": "Needs improvement"},',
-      '        {"name": "Poor", "points": 0, "description": "Does not meet expectations"}',
-      '      ]',
-      '    }',
-      '  ]',
-      '}',
-      '```',
-      'For linear rubrics, use "layout": "linear" and omit the levels array.',
-      'Generate 3-5 relevant criteria based on the document context or assignment type.',
+      'When creating structured documents, emit a single JSON artifact inside a ```json code block only when structure is explicitly helpful.',
+      'Never generate a RUBRIC unless the user explicitly asks for a rubric or grading criteria.',
+      'RUBRIC: type:"rubric", layout:"grid"|"linear", criteria with name/description/points/levels.',
+      'FEEDBACK PLAN: type:"feedback-plan", title, sections:[{heading, content}].',
+      'REPORT: type:"report", title, sections:[{heading, content, items?}]. Prefer REPORT for summaries/analyses.',
+      'TABLE: type:"table", title, headers:[...], rows:[...]. Use for lists in Inbox/Insights.',
+      'Choose the type based on the request; when ambiguous, prefer a concise, well-formatted Markdown answer over forcing an artifact.',
     ];
 
+    // Join with space - Gemini systemInstruction must be a simple text string
     const sys = [
       ...baseInstructions,
       ...(screenInstructions[screenType] || screenInstructions['document-viewer']),
@@ -297,23 +213,6 @@ app.post('/api/chat', async (req, res) => {
       light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
     ].filter(Boolean).join('\n');
 
-    // Few-shot example showing proper action button usage
-    const fewShotExample = screenType === 'document-viewer' ? `
-
-Example conversation showing proper action button format:
-
-User: Explain this similarity score
-Assistant: This paper has a 35% similarity score, meaning about one-third of the text matches other sources. The primary driver is a 22% match to a Climate.gov NOAA article that appears to be uncited in the Works Cited section. This is a significant academic integrity concern.
-
-Would you like me to help you address this? [ACTION:draft_comment|Help me draft a comment]
-
-You can also: [ACTION:highlight_text|Show me the issue|mc1]
-
----
-
-Now respond to the actual user query below, making sure to include action buttons in your response:
-` : '';
-
     // Build conversation history for multi-turn chat
     const conversationHistory = context?.conversationHistory || [];
     const chatHistory = conversationHistory
@@ -323,18 +222,21 @@ Now respond to the actual user query below, making sure to include action button
         parts: [{ text: msg.content }],
       }));
 
-    // Create system message with context
-    const systemPrompt = [sys, '', ctxText, fewShotExample].join('\n');
-
-    log.debug('chat:invoke_model', { id: req.id, historyLen: chatHistory.length, systemPromptLen: systemPrompt.length });
+    log.debug('chat:invoke_model', { id: req.id, historyLen: chatHistory.length, systemLen: sys.length, contextLen: ctxText.length });
 
     // Use Gemini's chat interface with history
+    // systemInstruction must be a Content object with parts array
     const chat = model.startChat({
       history: chatHistory,
-      systemInstruction: systemPrompt,
+      systemInstruction: {
+        role: 'system',
+        parts: [{ text: sys }],
+      },
     });
 
-    const result = await chat.sendMessage(prompt);
+    // Prepend context to the user's prompt
+    const promptWithContext = ctxText ? `${ctxText}\n\nUser Query: ${prompt}` : prompt;
+    const result = await chat.sendMessage(promptWithContext);
     const text = result?.response?.text?.() ?? '';
     log.info('chat:success', { id: req.id, textLen: text.length });
     return res.json({ text });
@@ -378,132 +280,48 @@ app.post('/api/chat/stream', async (req, res) => {
     // Build context-aware system prompt (same as non-streaming)
     const screenType = context?.screen || 'document-viewer';
     const baseInstructions = [
-      'You are an AI assistant for iThenticate, a plagiarism detection and essay review platform for teachers.',
+      'You are an AI assistant for Turnitin, helping instructors evaluate student submissions.',
+      'IMPORTANT: The user is an instructor/teacher grading student work, NOT a student writing an essay.',
+      'Never suggest actions for the student or assume the user wrote the paper being reviewed.',
+      'Focus on helping the instructor assess academic integrity, provide feedback, and grade submissions.',
       'Be concise, helpful, and actionable in your responses.',
     ];
 
     const screenInstructions = {
       'document-viewer': [
-        'You are an AI assistant helping educators analyze student papers for academic integrity.',
-        'Be clear, factual, and supportive. Help educators understand similarity scores and make informed decisions.',
-        '',
-        '**CRITICAL: You MUST include action buttons in your responses using this exact syntax:**',
-        '[ACTION:action_type|Button Label|optional_payload]',
-        '',
-        '**Understanding Similarity Scores:**',
-        '- Explain scores in plain language (e.g., "35% similarity means about one-third of this paper matches other sources")',
-        '- Identify the primary driver (the largest source contributing to the score)',
-        '- Distinguish between cited and uncited matches',
-        '- Note academic integrity concerns when uncited sources make up significant portions',
-        '- ALWAYS end your similarity analysis with at least one action button',
-        '',
-        '**Available Action Buttons (USE THESE FREQUENTLY):**',
-        '- [ACTION:draft_comment|Help me draft a comment] - Use when you identify an issue',
-        '- [ACTION:highlight_text|Show me the issue|matchCardId] - Use to navigate to a specific match',
-        '- [ACTION:add_comment|Add this inline comment|text] - Use to add an inline comment to a specific passage',
-        '- [ACTION:add_summary_comment|Add this summary comment|text] - Use to add an overall summary comment for the entire essay',
-        '- [ACTION:navigate|Go to Grading tab|Grading] - Use when discussing grading',
-        '- [ACTION:show_source|View this source|matchCardId] - Use when referencing a source',
-        '',
-        '**IMPORTANT: Two Types of Comments:**',
-        '1. INLINE COMMENTS - For specific passages/issues in the paper',
-        '   - Use [ACTION:add_comment|...] for these',
-        '   - Examples: "This paragraph lacks a clear topic sentence", "Cite this source", "This evidence doesn\'t support your claim"',
-        '   - These appear next to the relevant text in the document',
-        '',
-        '2. SUMMARY COMMENTS - For overall feedback on the entire essay',
-        '   - Use [ACTION:add_summary_comment|...] for these',
-        '   - Examples: "Strong thesis and well-organized argument", "Good use of evidence but needs stronger conclusion", "Excellent analysis overall"',
-        '   - These go in the Summary tab of the Feedback panel',
-        '   - Use for holistic/overall feedback, not specific passages',
-        '',
-        '**CRITICAL: When using action buttons with matchCardId:**',
-        '- The context includes a SourceNameToIdMap object that maps source names directly to their IDs',
-        '- Example: {"The Kitchn": "mc3", "Bon Appetit": "mc1", "Climate.gov NOAA": "mc2"}',
-        '- To reference a source, look up its name in SourceNameToIdMap to get the correct ID',
-        '- If discussing "The Kitchn", look up SourceNameToIdMap["The Kitchn"] to get "mc3", then use [ACTION:show_source|View The Kitchn|mc3]',
-        '- You can also check the TopSources list where each source has an "id" field',
-        '- NEVER guess or use a different source\'s ID - always look up the exact match',
-        '',
-        '**Example Response Pattern (FOLLOW THIS):**',
-        'This paper has a 35% similarity score. The primary driver is a 22% match to a NOAA Climate.gov article that is not cited in the Works Cited. This represents a significant academic integrity concern that needs to be addressed.',
-        '',
-        'Would you like me to help you address this issue? [ACTION:draft_comment|Help me draft a comment]',
-        '',
-        '**REMEMBER:** Every response should include at least one action button where appropriate. When you identify an issue, ALWAYS offer a [ACTION:draft_comment|...] button.',
+        'You help instructors analyze student papers for academic integrity and provide grading feedback.',
+        'The instructor is reviewing a student submission - offer assessment guidance, not writing advice.',
+        'Use pre-computed metrics (metrics.totalMatches, metrics.uncitedMatches, etc.) instead of calculating.',
+        'Include action buttons: [ACTION:draft_comment|Label], [ACTION:add_comment|Label|text|highlightId|page], [ACTION:show_source|Label|matchCardId].',
+        'When adding comments about specific text, include the highlightId from visibleHighlights and page number for proper positioning.',
+        'Use SourceNameToIdMap to get correct source IDs. Explain scores plainly, identify largest source, note integrity concerns.',
       ],
       'inbox': [
-        'You are helping manage the submissions inbox.',
-        'You have access to submission statistics, similarity scores, and document lists.',
-        'Help analyze trends, identify high-similarity submissions, and provide grading insights.',
-        '',
-        '**CRITICAL: Use the Metrics object for instant, accurate answers:**',
-        'The context includes a Metrics object with pre-computed statistics:',
-        '- metrics.total: total number of submissions',
-        '- metrics.graded: number of submissions that have been graded',
-        '- metrics.ungraded: number of submissions that still need grading',
-        '- metrics.highSimilarity: count of submissions with >40% similarity',
-        '- metrics.mediumSimilarity: count of submissions with 20-40% similarity',
-        '- metrics.lowSimilarity: count of submissions with <20% similarity',
-        '- metrics.recentSubmissions: count of submissions from last 7 days',
-        '- metrics.avgSimilarity: average similarity across all submissions',
-        '',
-        'ALWAYS use these pre-computed metrics instead of counting the submissions array yourself.',
-        'Example: When asked "how many need grading?", answer with metrics.ungraded.',
-        '',
-        '**IMPORTANT: For inbox queries about submissions, generate data tables as artifacts:**',
-        'When asked to "show submissions" or "list documents" with certain criteria (high similarity, missing grades, etc.), generate a structured table artifact:',
-        '```json',
-        '{',
-        '  "type": "table",',
-        '  "title": "High Similarity Submissions",',
-        '  "columns": ["Student", "Title", "Similarity", "Grade Status"],',
-        '  "rows": [',
-        '    ["Student Name", "Paper Title", "45%", "Not Graded"],',
-        '    ["Student Name 2", "Paper Title 2", "38%", "Graded"]',
-        '  ]',
-        '}',
-        '```',
-        'DO NOT generate rubrics for inbox queries - only generate tables/reports with submission data.',
+        'Help instructors manage their student submissions inbox.',
+        'Use pre-computed metrics (metrics.total, metrics.ungraded, metrics.highSimilarity, etc.).',
+        'For "show submissions" queries, generate table artifacts with type:"table". Do not generate rubrics for inbox.',
       ],
       'settings': [
-        'You are helping configure assignment settings.',
+        'You are helping an instructor configure assignment settings for their students.',
         'Explain configuration options and recommend best practices for similarity thresholds and AI detection.',
       ],
       'insights': [
-        'You are helping analyze submission statistics and trends.',
-        'Provide insights about similarity distributions, common sources, and patterns.',
+        'Analyze course-wide statistics and trends from student submissions.',
+        'Use pre-computed metrics (metrics.totalSubmissions, metrics.avgSimilarity, metrics.highRiskCount, metrics.citationQuality, etc.).',
       ],
     };
 
     const artifactInstructions = [
-      '\n**Creating Artifacts:**',
-      'When the user requests a rubric, grading criteria, or structured content, generate it as a JSON artifact.',
-      'Use this exact format:',
-      '```json',
-      '{',
-      '  "type": "rubric",',
-      '  "title": "Rubric Title",',
-      '  "layout": "grid",',
-      '  "criteria": [',
-      '    {',
-      '      "name": "Criterion Name",',
-      '      "description": "What to evaluate",',
-      '      "points": 10,',
-      '      "levels": [',
-      '        {"name": "Excellent", "points": 10, "description": "Exceeds expectations"},',
-      '        {"name": "Good", "points": 7, "description": "Meets expectations"},',
-      '        {"name": "Fair", "points": 5, "description": "Needs improvement"},',
-      '        {"name": "Poor", "points": 0, "description": "Does not meet expectations"}',
-      '      ]',
-      '    }',
-      '  ]',
-      '}',
-      '```',
-      'For linear rubrics, use "layout": "linear" and omit the levels array.',
-      'Generate 3-5 relevant criteria based on the document context or assignment type.',
+      'When creating structured documents, emit a single JSON artifact inside a ```json code block only when structure is explicitly helpful.',
+      'Never generate a RUBRIC unless the user explicitly asks for a rubric or grading criteria.',
+      'RUBRIC: type:"rubric", layout:"grid"|"linear", criteria with name/description/points/levels.',
+      'FEEDBACK PLAN: type:"feedback-plan", title, sections:[{heading, content}].',
+      'REPORT: type:"report", title, sections:[{heading, content, items?}]. Prefer REPORT for summaries/analyses.',
+      'TABLE: type:"table", title, headers:[...], rows:[...]. Use for lists in Inbox/Insights.',
+      'Choose the type based on the request; when ambiguous, prefer a concise, well-formatted Markdown answer over forcing an artifact.',
     ];
 
+    // Join with space - Gemini systemInstruction must be a simple text string
     const sys = [
       ...baseInstructions,
       ...(screenInstructions[screenType] || screenInstructions['document-viewer']),
@@ -533,23 +351,6 @@ app.post('/api/chat/stream', async (req, res) => {
       light.avgSimilarity !== undefined ? `Avg Similarity: ${light.avgSimilarity}%` : '',
     ].filter(Boolean).join('\n');
 
-    // Few-shot example showing proper action button usage
-    const fewShotExample = screenType === 'document-viewer' ? `
-
-Example conversation showing proper action button format:
-
-User: Explain this similarity score
-Assistant: This paper has a 35% similarity score, meaning about one-third of the text matches other sources. The primary driver is a 22% match to a Climate.gov NOAA article that appears to be uncited in the Works Cited section. This is a significant academic integrity concern.
-
-Would you like me to help you address this? [ACTION:draft_comment|Help me draft a comment]
-
-You can also: [ACTION:highlight_text|Show me the issue|mc1]
-
----
-
-Now respond to the actual user query below, making sure to include action buttons in your response:
-` : '';
-
     // Build conversation history for multi-turn chat
     const conversationHistory = context?.conversationHistory || [];
     const chatHistory = conversationHistory
@@ -559,18 +360,23 @@ Now respond to the actual user query below, making sure to include action button
         parts: [{ text: msg.content }],
       }));
 
-    // Create system message with context
-    const systemPrompt = [sys, '', ctxText, fewShotExample].join('\n');
+    log.debug('chat_stream:invoke_model', { id: req.id, historyLen: chatHistory.length, systemLen: sys.length, contextLen: ctxText.length });
 
-    log.debug('chat_stream:invoke_model', { id: req.id, historyLen: chatHistory.length, systemPromptLen: systemPrompt.length });
+    // Prepend context to the user's prompt
+    const promptWithContext = ctxText ? `${ctxText}\n\nUser Query: ${prompt}` : prompt;
+
     try {
       // Use Gemini's chat interface with history for streaming
+      // systemInstruction must be a Content object with parts array
       const chat = model.startChat({
         history: chatHistory,
-        systemInstruction: systemPrompt,
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: sys }],
+        },
       });
 
-      const result = await chat.sendMessageStream(prompt);
+      const result = await chat.sendMessageStream(promptWithContext);
       for await (const chunk of result.stream) {
         const t = chunk.text();
         if (t) res.write(t);
@@ -582,9 +388,12 @@ Now respond to the actual user query below, making sure to include action button
       log.warn('chat_stream:fallback_to_nonstream', { id: req.id, error: err instanceof Error ? { message: err.message } : err });
       const chat = model.startChat({
         history: chatHistory,
-        systemInstruction: systemPrompt,
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: sys }],
+        },
       });
-      const nonstream = await chat.sendMessage(prompt);
+      const nonstream = await chat.sendMessage(promptWithContext);
       const text = nonstream?.response?.text?.() ?? '';
       res.write(text || '\n[Chat server] No content returned from Gemini.');
       res.end();

@@ -11,6 +11,57 @@ export type InboxMetrics = {
   avgSimilarity: number;
 };
 
+export type DocumentMetrics = {
+  totalMatches: number;
+  citedMatches: number;
+  uncitedMatches: number;
+  integrityIssues: number;
+  largestMatchPercent: number;
+  largestMatchSource: string;
+  avgMatchSize: number;
+  citedVsUncited: {
+    cited: number;
+    uncited: number;
+    citedPercent: number;
+  } | null;
+  sourceTypes: Record<string, number>;
+};
+
+export type InsightsMetrics = {
+  totalSubmissions: number;
+  avgSimilarity: number;
+  medianSimilarity: number;
+  highRiskCount: number;
+  mediumRiskCount: number;
+  lowRiskCount: number;
+  integrityIssuesCount: number;
+  highPriorityInterventions: number;
+  totalInterventionsNeeded: number;
+  topSourcesBreakdown: {
+    internet: number;
+    publications: number;
+    studentWork: number;
+    total: number;
+  };
+  mostProblematicSource: {
+    name: string;
+    affectedStudents: number;
+    avgSimilarity: number;
+  } | null;
+  citationQuality: {
+    rate: number;
+    rating: 'good' | 'fair' | 'poor';
+    properlyCited: number;
+    uncited: number;
+    improperlyCited: number;
+  };
+  similarityRange: {
+    min: number;
+    max: number;
+    spread: number;
+  };
+};
+
 export type GeminiContext = {
   screen?: string;
   doc?: DocumentData;
@@ -22,7 +73,7 @@ export type GeminiContext = {
   totalSubmissions?: number;
   selectedCount?: number;
   avgSimilarity?: number;
-  metrics?: InboxMetrics; // Computed metrics for instant answers
+  metrics?: InboxMetrics | DocumentMetrics | InsightsMetrics; // Computed metrics for instant answers
   submissions?: Array<{
     id: string;
     title: string;

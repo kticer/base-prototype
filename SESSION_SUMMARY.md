@@ -1,6 +1,6 @@
 # Development Session Summary
 **Date:** 2025-10-20
-**Project:** iThenticate Prototype - Chatbot Integration
+**Project:** iThenticate Prototype - Chatbot Integration & UI Improvements
 
 ---
 
@@ -8,113 +8,127 @@
 
 ### ✅ Completed in This Session
 
-#### 1. **Chat UX Improvements**
-- **Conversation Starter Auto-Send:**
-  - Changed conversation starter buttons from populating input to auto-sending
-  - Provides one-click interaction instead of requiring two clicks
-  - Files: `src/components/chatbot/GlobalChatPanel.tsx`
-
-- **Collapsible Suggested Actions:**
-  - Made "Suggested Actions" section collapsible above chat input
-  - Added chevron toggle with smooth animations (200ms ease-in-out)
-  - Saves vertical space while keeping features accessible
-  - Files: `src/components/chatbot/GlobalChatPanel.tsx`
-
-- **Auto-Scroll on Follow-Up Expansion:**
-  - When user expands suggested follow-ups, chat auto-scrolls up 120px
-  - Ensures suggestions are visible after expansion
-  - Files: `src/components/chatbot/GlobalChatPanel.tsx`
-
-- **Removed Refine Buttons:**
-  - Removed "Refine:" section with "Make it shorter", "Explain simpler", "Show example"
-  - Simplified message UI to reduce clutter
-  - Files: `src/components/chatbot/GlobalChatPanel.tsx`
-
-#### 2. **Conversation History Implementation (Critical Fix)**
-- **Problem:** Gemini gave same/repetitive answers because it had no memory
-- **Root Cause:** Each message was sent in isolation without conversation history
+#### 1. **Chat-Created Comment Positioning Fix**
+- **Problem:** Comments created via chat always appeared at the top of the document instead of near the highlighted text
+- **Root Cause:** `handleAddCommentAction` wasn't receiving position data (highlightId, page) from chat actions
 - **Solution:**
-  - Client-side: Include last 10 messages in `conversationHistory` context
-  - Server-side: Use `model.startChat()` with history instead of single `generateContent()` calls
-  - Proper role mapping: 'assistant' → 'model', 'user' → 'user'
-  - Applied to both streaming and non-streaming endpoints
-- **Impact:** Gemini now maintains context across multi-turn conversations
+  - Updated server instructions to include highlightId and page in `add_comment` actions
+  - Modified `chatActions.ts` parser to extract multi-parameter payloads (text|highlightId|page)
+  - Updated `GlobalChatPanel.tsx` to pass highlightId and page to `handleAddCommentAction`
+  - Store uses highlightId to find correct position from existing highlights
 - **Files Changed:**
-  - `src/components/chatbot/GlobalChatPanel.tsx` - Added conversationHistory to context
-  - `server/index.js` - Updated both `/api/chat` and `/api/chat/stream` endpoints
+  - `server/index.js` - Updated action format documentation
+  - `src/utils/chatActions.ts` - Enhanced payload parsing for add_comment
+  - `src/components/chatbot/GlobalChatPanel.tsx` - Extract and pass position parameters
+  - `src/store.ts` - Already had support for highlightId parameter
 
-#### 3. **Document Viewer Layout Fix**
-- **Problem:** After relocating chat panel, document paper could not scroll
-- **Root Cause:** Parent wrapper had `overflow-hidden` and flex layout prevented scrolling
-- **Solution:**
-  - Removed `overflow-hidden` from Document Content Area wrapper
-  - Changed `DocumentContent` from `flex-1` to `absolute inset-0`
-  - Properly established scrollable container with absolute positioning
+#### 2. **Chat Confirmation Message Improvements**
+- **Reduced Spacing:** Changed system message spacing from `mt-3` to `mt-1` for more compact display
+- **Removed show_source Confirmations:** No longer shows "✓ Source opened" - only confirms document changes
+- **Active Confirmations:** Only show for `add_comment`, `add_summary_comment`, and artifact generation
 - **Files Changed:**
-  - `src/pages/DocumentViewer.tsx` - Removed overflow-hidden
-  - `src/components/document/DocumentContent.tsx` - Changed to absolute positioning
+  - `src/components/chatbot/GlobalChatPanel.tsx` - Updated message spacing and removed show_source confirmation
 
-#### 4. **Previous Session - Similarity Score Fixes**
-- **Problem:** Document viewer chat was showing incorrect similarity scores (34% instead of 62%)
-- **Root Cause:** Code was summing individual match card percentages instead of using actual document similarity from `folder_structure.json`
+#### 3. **Enhanced Markdown Rendering for Chat**
+- **Fixed Orphaned Bullets:** Removed `**` standalone bullets from lists
+- **Added List Spacing:** Lists now have `space-y-2` for better readability
+- **Source Citation Badges:** Source names in quotes now display:
+  - Percentage badge with color coding (red ≥15%, yellow ≥8%, gray <8%)
+  - Uncited warning badge with icon (red)
+  - Cited success badge with checkmark (green)
+- **Fixed `**:` Pattern:** Cleaned up broken `**:` syntax to just `:`
+- **Improved Spacing:** Added `space-y-3` between paragraphs
+- **Files Changed:**
+  - `src/components/common/Markdown.tsx` - Enhanced citation rendering and list formatting
+
+#### 4. **Strengthened AI Role Context**
+- **Problem:** AI sometimes suggested actions as if the user was the student writing the essay
+- **Solution:** Updated system instructions to be very explicit:
+  - "The user is an instructor/teacher grading student work, NOT a student writing an essay"
+  - "Never suggest actions for the student or assume the user wrote the paper being reviewed"
+  - Screen-specific reminders that user is reviewing student submissions
+- **Files Changed:**
+  - `server/index.js` - Updated base and screen-specific instructions (both streaming and non-streaming)
+
+#### 5. **Floating Comment Overlap Prevention**
+- **Problem:** Comment cards could overlap when multiple comments were close together
 - **Solution:**
-  - Modified `DocumentViewer.tsx` to load actual similarity from `folder_structure.json`
-  - Updated server to include `similarityScore` and `wordCount` in Gemini API context
-  - Replaced `useSimilarityScore()` hook with `actualSimilarity` state
+  - Added ref tracking to measure actual card heights (not just estimated 120px)
+  - Implemented ResizeObserver to detect when card heights change
+  - Increased spacing from 8px to 12px between cards
+  - Collision detection now uses actual measured heights
+- **Files Changed:**
+  - `src/components/feedback/FloatingCommentCards.tsx` - Added refs, ResizeObserver, actual height measurement
+
+#### 6. **Dynamic Context-Aware Prompt Suggestions**
+Replaced generic suggestions with instructor-focused, context-aware prompts that adapt to the current state:
+
+**DocumentViewer Suggestions:**
+- **High Similarity (>30%):**
+  - "Draft feedback about citation concerns"
+  - "Should I schedule a meeting with this student?"
+  - "Review each uncited match systematically"
+- **Moderate Similarity (10-30%):**
+  - "Check if uncited matches need citations"
+  - "Assess paraphrasing quality"
+  - "Verify citation formatting is correct"
+- **Low Similarity (<10%):**
+  - "Evaluate argument originality and depth"
+  - "Check if the student needs more sources"
+- **Tab-specific:**
+  - Grading: "Generate grading justification"
+  - AI Writing: "How should I address AI writing concerns?"
+
+**InboxPage Suggestions:**
+- "Which of the X ungraded submissions should I prioritize?"
+- "Show me the X high-risk submissions that need immediate review"
+- "Help me plan my grading for the X recent submissions"
+- "What's a realistic grading schedule for my workload?"
+- "What should I do with these X selected submissions?"
+
+**InsightsPage Suggestions:**
+- "Which X students with integrity concerns should I contact first?"
+- "How can I address the X% citation rate in my next class?"
+- "Why are X students using [problematic source]?"
+- "Should I adjust my assignment to reduce similarity scores?"
+- "Help me prioritize my academic integrity follow-ups"
+
+**Files Changed:**
+- `src/pages/DocumentViewer.tsx` - Completely rewrote suggestion logic
+- `src/pages/InboxPage.tsx` - Made suggestions dynamic based on metrics
+- `src/pages/InsightsPage.tsx` - Made suggestions analytics-focused
+
+#### 7. **Multiple Artifact Type Support**
+- **Problem:** AI always created rubrics regardless of request (e.g., "feedback plan" became a rubric)
+- **Solution:** Implemented 4 distinct artifact types:
+  - **`rubric`** - Grading criteria (existing)
+  - **`feedback-plan`** - Student meeting plans (NEW)
+  - **`report`** - Analysis summaries (NEW)
+  - **`table`** - Tabular data (NEW)
+- **Implementation:**
+  - Updated server instructions to define all 4 types with clear use cases
+  - Created separate React components for each artifact type
+  - Updated ArtifactPreview to route to appropriate renderer
+- **Files Changed:**
+  - `server/index.js` - Expanded artifact instructions with type selection guidance
+  - `src/components/chatbot/GlobalChatPanel.tsx` - Added FeedbackPlanArtifact, ReportArtifact, TableArtifact components
+
+#### 8. **Previous Session - Extended Computed Metrics Pattern**
+- Extended metrics to DocumentViewer and InsightsPage (from previous session)
+- **DocumentViewer Metrics:**
+  - `totalMatches`, `citedMatches`, `uncitedMatches`, `integrityIssues`
+  - `largestMatchPercent`, `largestMatchSource`, `avgMatchSize`
+  - `citedVsUncited` breakdown, `sourceTypes`
+- **InsightsPage Metrics:**
+  - `totalSubmissions`, `avgSimilarity`, `medianSimilarity`
+  - `highRiskCount`, `mediumRiskCount`, `lowRiskCount`
+  - `integrityIssuesCount`, `highPriorityInterventions`
+  - `topSourcesBreakdown`, `mostProblematicSource`, `citationQuality`
 - **Files Changed:**
   - `src/pages/DocumentViewer.tsx`
-  - `server/index.js`
-
-#### 5. **Previous Session - Inbox Chat Context Architecture - Computed Metrics**
-- **Problem:** Chat couldn't answer basic questions like "How many papers need grading?" (always said "0")
-- **Root Cause:** Gemini wasn't properly analyzing raw submission arrays
-- **Solution:** Implemented computed metrics pattern
-  - Added `InboxMetrics` type with pre-computed statistics
-  - Metrics include: total, graded, ungraded, highSimilarity, mediumSimilarity, lowSimilarity, recentSubmissions, avgSimilarity
-  - Client-side computation ensures instant, accurate answers
-  - Works in both mock and real Gemini modes
-- **Benefits:**
-  - ✅ Instant accurate answers (no LLM interpretation)
-  - ✅ Reduces token usage
-  - ✅ Prevents hallucination
-  - ✅ Works in mock mode
-- **Files Changed:**
-  - `src/pages/InboxPage.tsx` - Added `useMemo` computed metrics
-  - `src/services/geminiClient.ts` - Added `InboxMetrics` type, updated mock responses
-  - `server/index.js` - Updated `lighten()`, added metrics to context, enhanced instructions
-
-#### 6. **Previous Session - Artifact System Improvements**
-- **Problem:** Inbox chat was generating rubrics instead of data tables/reports
-- **Solution:**
-  - Expanded artifact detection to accept `type: 'table'`, `type: 'report'`, `type: 'data'`
-  - Added inbox-specific instructions to generate table artifacts
-  - Updated `GlobalChatPanel.tsx` to accept multiple artifact types
-- **Files Changed:**
-  - `src/components/chatbot/GlobalChatPanel.tsx`
-  - `server/index.js`
-
-#### 7. **Previous Session - UI/UX Improvements**
-- **Layout Fixes:**
-  - Fixed viewport overflow issues (changed `w-screen` to `w-full`)
-  - Fixed chat panel positioning (uses `position: fixed` in both modes)
-  - Changed from marginRight to paddingRight approach
-  - Added horizontal scrolling table with frozen columns (checkbox + Student/Title)
-- **Chat Panel Enhancements:**
-  - Added smooth slide-in/slide-out animations for artifacts
-  - Improved "View Artifact" button (full-width, gradient background)
-  - Made JSON code blocks collapsible (auto-collapse >300 chars)
-  - Wired up artifact buttons (Edit, Save to Rubrics, Export)
-- **Navigation:**
-  - Made Turnitin logo clickable to navigate back to inbox
-- **Files Changed:**
-  - `src/pages/InboxPage.tsx`
   - `src/pages/InsightsPage.tsx`
-  - `src/pages/DocumentViewer.tsx`
-  - `src/components/chatbot/GlobalChatPanel.tsx`
-  - `src/components/inbox/SubmissionTable.tsx`
-  - `src/components/common/Markdown.tsx`
-  - `src/components/document/DocumentHeader.tsx`
-  - `src/index.css`
+  - `src/services/geminiClient.ts`
+  - `server/index.js`
 
 ---
 
@@ -126,19 +140,19 @@
 ```
 server/index.js
 src/components/chatbot/GlobalChatPanel.tsx
-src/components/document/DocumentContent.tsx
-src/pages/DocumentViewer.tsx
 src/components/common/Markdown.tsx
-src/components/document/DocumentHeader.tsx
-src/components/inbox/SubmissionTable.tsx
-src/index.css
+src/components/feedback/FloatingCommentCards.tsx
+src/hooks/useResponsiveLayout.ts
+src/pages/DocumentViewer.tsx
 src/pages/InboxPage.tsx
+src/pages/InsightsPage.tsx
 src/services/geminiClient.ts
+src/store.ts
+src/utils/chatActions.ts
 ```
 
 **Untracked Files:**
 ```
-scripts/get-similarity-scores.cjs
 SESSION_SUMMARY.md (this file)
 ```
 
@@ -146,130 +160,144 @@ SESSION_SUMMARY.md (this file)
 
 ## 🏗️ Architecture Decisions
 
-### Context Object Pattern
-**Decision:** Use computed metrics + raw data hybrid approach
+### Instructor-Centric Design
+**Decision:** All AI interactions assume user is an instructor evaluating student work
 
 **Rationale:**
-- Computed metrics for common queries (faster, accurate, no hallucination)
-- Raw data for flexible queries (custom filters, complex questions)
-- Client-side computation reduces token usage and API costs
-- Works across all pages (inbox, document-viewer, insights)
+- Prevents confusing suggestions (e.g., "improve your thesis" directed at instructor)
+- Focuses on assessment, feedback, and grading tasks
+- Aligns with actual use case of plagiarism detection platform
 
-**Pattern to Follow:**
+**Implementation:**
+- Explicit role statements in system instructions
+- Context-aware suggestions based on instructor needs
+- Actions focus on evaluation, not writing improvement
+
+### Multiple Artifact Types
+**Decision:** Support distinct artifact types beyond rubrics
+
+**Rationale:**
+- Instructors need different structured outputs (meeting plans, reports, tables)
+- Generic text doesn't convey structure as well
+- Different formats optimize for different use cases
+
+**Pattern:**
 ```typescript
-// 1. Define metrics interface
-interface PageMetrics {
-  total: number;
-  // ... page-specific metrics
+// Server provides type-specific instructions
+'FEEDBACK PLAN artifacts: type:"feedback-plan", title, sections array...'
+
+// Client routes to appropriate renderer
+switch (artifact.type) {
+  case 'feedback-plan': return <FeedbackPlanArtifact />;
+  case 'report': return <ReportArtifact />;
+  // ...
 }
-
-// 2. Compute metrics with useMemo
-const metrics = useMemo(() => ({
-  total: data.length,
-  // ... compute from data
-}), [data]);
-
-// 3. Include in context
-const chatContext = {
-  screen: 'page-name',
-  metrics,
-  rawData: data.slice(0, 30), // for flexible queries
-};
 ```
 
-**Extends to:**
-- ✅ **InboxPage** - Implemented
-- 🔲 **DocumentViewer** - Not yet implemented (could add match metrics)
-- 🔲 **InsightsPage** - Not yet implemented (could add course analytics metrics)
+### Dynamic Suggestions Pattern
+**Decision:** Suggestions adapt to current state rather than being static
+
+**Benefits:**
+- More relevant and actionable
+- Reduces cognitive load (instructor doesn't have to think what to ask)
+- Guides instructors through evaluation workflow
+- Reinforces tool purpose (grading assistant)
+
+**Pattern:**
+```typescript
+const suggestions = useMemo(() => {
+  const suggestions = [];
+
+  if (highSimilarity) {
+    suggestions.push("Draft feedback about citation concerns");
+  } else if (lowSimilarity) {
+    suggestions.push("Evaluate argument originality");
+  }
+
+  return suggestions.slice(0, 4);
+}, [metrics]);
+```
 
 ---
 
 ## 🐛 Known Issues
 
-### 1. Data Inconsistency
-- **Issue:** Document JSON says author is "Carlos O'Hara Sr." but folder_structure.json says "Nina Forhire" with 22% similarity
-- **Document:** `doc-political-economic-and-ideological-factors-in-the-cold-war-1945-1991-1751316807511-1.json`
-- **Impact:** Minor - doesn't affect functionality, just metadata mismatch
-- **Status:** Known, low priority
+### 1. Chat-Created Comments May Not Always Position Accurately
+- **Issue:** Position calculation depends on DOM element availability and text offset estimates
+- **Impact:** Some comments may appear slightly above/below intended position
+- **Workaround:** Collision detection ensures they don't overlap
+- **Status:** Acceptable for prototype, could improve with more precise positioning
 
-### 2. Artifact Detection
-- **Issue:** Rubric detection is now very strict (requires both action verb AND "rubric" keyword)
-- **Impact:** Reduces false positives but might miss some valid rubric requests
-- **Status:** Intentional tradeoff, monitor for issues
+### 2. ResizeObserver in FloatingCommentCards
+- **Issue:** ResizeObserver fires frequently when cards resize
+- **Impact:** Minimal - position recalculation is debounced
+- **Status:** Working as designed
 
 ---
 
 ## 🎯 Recommended Next Steps
 
 ### High Priority
-1. **Test Conversation History Feature**
-   - Verify Gemini maintains context across multiple messages
-   - Test that responses reference previous conversation
-   - Confirm no repetitive/generic answers
-   - Test both streaming and non-streaming endpoints
+1. **Test Artifact Type Selection**
+   - Ask AI to "create a feedback plan for meeting with student"
+   - Verify it generates `type: "feedback-plan"` instead of rubric
+   - Test report generation and table generation
+   - Confirm each artifact type renders correctly
 
-2. **Commit and Push Current Work**
-   - All UX improvements are complete
-   - Conversation history is a critical fix that should be deployed
-   - Document scrolling is working properly
-   - Create comprehensive commit message covering all improvements
+2. **Test Dynamic Suggestions**
+   - Open documents with different similarity levels (low, medium, high)
+   - Verify suggestions change appropriately
+   - Check inbox suggestions adapt to workload
+   - Test insights suggestions with different analytics
+
+3. **Test Comment Positioning**
+   - Create comments via chat about specific highlighted text
+   - Verify they appear near the highlight, not always at top
+   - Test with multiple comments to ensure no overlaps
 
 ### Medium Priority
-3. **Extend Metrics to Other Pages**
-   - **DocumentViewer:** Add computed metrics for matches
-     ```typescript
-     {
-       totalMatches, uncitedMatches, integrityIssues,
-       largestMatch, avgMatchSize, citedVsUncited
-     }
-     ```
-   - **InsightsPage:** Add computed metrics for courses
-     ```typescript
-     {
-       totalCourses, avgClassSimilarity, highRiskCourses,
-       trendsOverTime, mostCommonSources
-     }
-     ```
+4. **Improve Artifact System**
+   - Add "Save Feedback Plan" functionality (like Save to Rubrics)
+   - Add export for reports and tables
+   - Consider adding edit mode for feedback plans
 
-4. **Enhance Artifact System**
-   - Add preview/rendering for table artifacts (not just rubrics)
-   - Add export functionality for table artifacts
-   - Add filtering/sorting in table artifacts
+5. **Enhance Visual Design**
+   - Consider adding source type icons (Internet, Publication, Student Work)
+   - Add more visual distinction between artifact types
+   - Consider color-coding suggestions by category
 
 ### Low Priority
-5. **Improve Mock Responses**
-   - Add more pattern matching for common questions
-   - Add responses for table artifact generation
-   - Improve response quality in mock mode
+6. **Refine Suggestion Logic**
+   - A/B test different suggestion phrasings
+   - Add more granular conditions for suggestions
+   - Consider adding instructor preferences for suggestion style
 
-6. **Documentation**
-   - Update CLAUDE.md with computed metrics pattern
-   - Document artifact types and usage
-   - Add examples of good chat queries
+7. **Documentation**
+   - Document all artifact types and their schemas
+   - Add examples of good instructor queries
+   - Update CLAUDE.md with new patterns
 
 ---
 
 ## 📚 Key Files Reference
 
-### Core Chat System
-- `src/services/geminiClient.ts` - Client-side Gemini API adapter, types, mock responses
-- `src/components/chatbot/GlobalChatPanel.tsx` - Main chat UI component
-- `src/utils/chatActions.ts` - Action button parsing and handling
-- `server/index.js` - Express proxy for Gemini API, context processing
+### Chat System
+- `src/components/chatbot/GlobalChatPanel.tsx` - Main chat UI, artifact rendering
+- `src/utils/chatActions.ts` - Action parsing including multi-parameter payloads
+- `server/index.js` - Gemini API proxy with instructor-focused instructions
+- `src/services/geminiClient.ts` - Types for DocumentMetrics, InsightsMetrics
+
+### Markdown & Rendering
+- `src/components/common/Markdown.tsx` - Enhanced citation rendering with badges
+- `src/components/feedback/FloatingCommentCards.tsx` - Comment positioning with collision detection
 
 ### Page Components
-- `src/pages/InboxPage.tsx` - Submissions list with computed metrics
-- `src/pages/DocumentViewer.tsx` - Document analysis view
-- `src/pages/InsightsPage.tsx` - Course analytics dashboard
-
-### UI Components
-- `src/components/inbox/SubmissionTable.tsx` - Table with frozen columns
-- `src/components/common/Markdown.tsx` - Markdown renderer with collapsible code
-- `src/components/document/DocumentHeader.tsx` - Header with logo navigation
+- `src/pages/DocumentViewer.tsx` - Dynamic suggestions based on similarity
+- `src/pages/InboxPage.tsx` - Workload-aware suggestions
+- `src/pages/InsightsPage.tsx` - Analytics-focused suggestions
 
 ### State Management
-- `src/store.ts` - Zustand store for global state
-- Includes: navigation, chat, artifacts, rubrics, comments, feature flags
+- `src/store.ts` - Comment creation with position tracking
 
 ---
 
@@ -294,49 +322,72 @@ npm run lint
 
 ---
 
-## 📊 Metrics Pattern Example
+## 📊 Artifact Types Reference
 
-### Inbox Metrics (Implemented)
-```typescript
-const metrics = {
-  total: 8,
-  graded: 0,
-  ungraded: 8,
-  highSimilarity: 2,    // >40%
-  mediumSimilarity: 4,  // 20-40%
-  lowSimilarity: 2,     // <20%
-  recentSubmissions: 5, // last 7 days
-  avgSimilarity: 35.5
-};
+### Rubric
+```json
+{
+  "type": "rubric",
+  "title": "Essay Grading Rubric",
+  "layout": "grid",
+  "criteria": [
+    {
+      "name": "Thesis Statement",
+      "description": "Clear, focused thesis",
+      "levels": [
+        {"name": "Excellent", "points": 10, "description": "..."},
+        {"name": "Good", "points": 8, "description": "..."}
+      ]
+    }
+  ]
+}
 ```
 
-### Test Queries
-- "How many submissions need grading?" → "8 still need grading"
-- "Show me high similarity submissions" → "2 submissions with >40% similarity"
-- "What's the average similarity?" → "35.5%"
-- "How many recent submissions?" → "5 in the last 7 days"
+### Feedback Plan
+```json
+{
+  "type": "feedback-plan",
+  "title": "Meeting Plan: Citation Issues",
+  "sections": [
+    {
+      "heading": "Opening Discussion",
+      "content": "Start by asking the student about their research process..."
+    },
+    {
+      "heading": "Main Concerns",
+      "content": "Address the 3 uncited sources..."
+    }
+  ]
+}
+```
 
----
+### Report
+```json
+{
+  "type": "report",
+  "title": "Similarity Analysis Report",
+  "sections": [
+    {
+      "heading": "Summary",
+      "content": "This submission shows 35% similarity...",
+      "items": ["22% from Climate.gov", "8% from Encyclopedia"]
+    }
+  ]
+}
+```
 
-## 🚨 Important Notes
-
-1. **Token Budget:** Session used ~61,000 tokens out of 200,000 budget (30.5%)
-
-2. **Git Status:**
-   - Branch: `main`
-   - Remote status: Up to date with origin/main
-   - Uncommitted changes: 10 modified files
-   - Last commit: "569f861 Fix layout issues and enhance chat UX"
-
-3. **Environment:**
-   - Working directory: `/Users/kticer/Node/chatbot-prototype`
-   - Platform: darwin (macOS)
-   - Node version: Compatible with Vite + React + TypeScript
-
-4. **Feature Flags:**
-   - Reusable comments bank: Available
-   - Auto-save functionality: Available
-   - Settings stored in localStorage: `ithenticate-feature-flags`
+### Table
+```json
+{
+  "type": "table",
+  "title": "High-Risk Submissions",
+  "headers": ["Student", "Similarity", "Issues"],
+  "rows": [
+    ["John Smith", "45%", "3 uncited"],
+    ["Jane Doe", "38%", "2 uncited"]
+  ]
+}
+```
 
 ---
 
@@ -344,21 +395,28 @@ const metrics = {
 
 When continuing this work:
 
-1. **Start with:** Test conversation history feature with real Gemini API
-   - Have a multi-turn conversation about a document
-   - Ask follow-up questions that reference previous messages
-   - Verify Gemini maintains context and provides relevant answers
+1. **Key Improvements This Session:**
+   - Chat comments now position near highlighted text (not always at top)
+   - AI maintains instructor perspective (doesn't confuse user with student)
+   - Suggestions are dynamic and context-aware
+   - Multiple artifact types supported (rubric, feedback-plan, report, table)
+   - Enhanced markdown with citation badges and better formatting
+   - Comments prevent overlaps with actual height measurement
 
-2. **Key Changes This Session:**
-   - Conversation history now sent with every request (last 10 messages)
-   - Chat UX simplified and improved (auto-send starters, collapsible actions)
-   - Document scrolling fixed after chat panel relocation
+2. **Watch for:**
+   - Artifact type selection working correctly
+   - Suggestions adapting to document/inbox state
+   - Comments appearing near their highlights
+   - No overlapping comment cards
+   - Citation badges showing correct colors and status
 
-3. **Watch for:**
-   - Conversation history working properly (no repetitive answers)
-   - Auto-send conversation starters functioning
-   - Document viewer scrolling working in shrink mode
-   - Suggested actions collapsing/expanding smoothly
+3. **Testing Checklist:**
+   - [ ] Ask for "feedback plan" - should create feedback-plan artifact, not rubric
+   - [ ] Open high-similarity doc - suggestions should be integrity-focused
+   - [ ] Open low-similarity doc - suggestions should be quality-focused
+   - [ ] Create comment via chat - should appear near highlight
+   - [ ] Create multiple comments - should not overlap
+   - [ ] Check markdown citation badges - should show % and cited/uncited status
 
 **Quick Start Commands:**
 ```bash
@@ -367,6 +425,28 @@ npm run dev          # Terminal 1
 npm run chat-api     # Terminal 2 (if testing real Gemini)
 git status           # Check uncommitted changes
 ```
+
+---
+
+## 🚨 Important Notes
+
+1. **Token Budget:** Session used ~95,000 tokens out of 200,000 budget (47.5%)
+
+2. **Git Status:**
+   - Branch: `main`
+   - Remote status: Up to date with origin/main
+   - Uncommitted changes: 11 modified files
+   - Last commit: "f588777 Complete chat system improvements and layout fixes"
+
+3. **Environment:**
+   - Working directory: `/Users/kticer/Node/chatbot-prototype`
+   - Platform: darwin (macOS)
+   - Model: claude-sonnet-4-5-20250929
+
+4. **Feature Flags:**
+   - Reusable comments bank: Available
+   - Auto-save functionality: Available
+   - Settings stored in localStorage: `ithenticate-feature-flags`
 
 ---
 

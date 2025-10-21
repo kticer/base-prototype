@@ -15,7 +15,7 @@ type MarkdownProps = {
 export default function Markdown({ text, matchCards, onCitationClick }: MarkdownProps) {
   const blocks = splitIntoBlocks(text || '');
   return (
-    <div className="prose prose-sm max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded">
+    <div className="prose prose-sm max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded space-y-3">
       {blocks.map((b, i) => (
         <Block key={i} block={b} matchCards={matchCards} onCitationClick={onCitationClick} />
       ))}
@@ -129,18 +129,24 @@ function Block({ block, matchCards, onCitationClick }: { block: TextBlock; match
     case 'list':
       if (block.ordered) {
         return (
-          <ol className="list-decimal pl-5">
-            {block.items.map((it, i) => (
-              <li key={i}><Inline text={it} matchCards={matchCards} onCitationClick={onCitationClick} /></li>
-            ))}
+          <ol className="list-decimal pl-5 space-y-2">
+            {block.items.map((it, i) => {
+              // Clean up orphaned ** markers
+              const cleanedText = it.replace(/^\*\*\s*$/, '').trim();
+              if (!cleanedText) return null;
+              return <li key={i}><Inline text={cleanedText} matchCards={matchCards} onCitationClick={onCitationClick} /></li>;
+            })}
           </ol>
         );
       }
       return (
-        <ul className="list-disc pl-5">
-          {block.items.map((it, i) => (
-            <li key={i}><Inline text={it} matchCards={matchCards} onCitationClick={onCitationClick} /></li>
-          ))}
+        <ul className="list-disc pl-5 space-y-2">
+          {block.items.map((it, i) => {
+            // Clean up orphaned ** markers
+            const cleanedText = it.replace(/^\*\*\s*$/, '').trim();
+            if (!cleanedText) return null;
+            return <li key={i}><Inline text={cleanedText} matchCards={matchCards} onCitationClick={onCitationClick} /></li>;
+          })}
         </ul>
       );
     case 'paragraph':
@@ -211,19 +217,48 @@ function formatTextWithCitations(text: string, key: string, matchCards?: any[], 
       chunks.push(formatEmphasis(text.slice(lastIndex, match.index), `${key}-pre-${match.index}`));
     }
 
-    // If we found a matching source, make it clickable
+    // If we found a matching source, make it clickable with enhanced styling
     if (matchCard) {
+      const percent = matchCard.similarityPercent || 0;
+      const isIntegrityIssue = matchCard.academicIntegrityIssue;
+      const isCited = matchCard.isCited;
+
+      // Color coding based on percentage
+      const percentColor = percent >= 15 ? 'bg-red-100 text-red-800 border-red-300' :
+                           percent >= 8 ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                           'bg-gray-100 text-gray-700 border-gray-300';
+
       chunks.push(
-        <button
-          key={`${key}-cite-${match.index}`}
-          onClick={(e) => {
-            e.preventDefault();
-            onCitationClick(matchCard.id);
-          }}
-          className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
-        >
-          "{sourceName}"
-        </button>
+        <span key={`${key}-cite-${match.index}`} className="inline-flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onCitationClick(matchCard.id);
+            }}
+            className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+          >
+            "{sourceName}"
+          </button>
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold rounded border ${percentColor}`}>
+            {percent}%
+          </span>
+          {isIntegrityIssue && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-red-50 text-red-700 border border-red-200 rounded">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Uncited
+            </span>
+          )}
+          {!isIntegrityIssue && isCited && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-green-50 text-green-700 border border-green-200 rounded">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Cited
+            </span>
+          )}
+        </span>
       );
     } else {
       // Not a recognized source, just format normally
@@ -244,7 +279,10 @@ function formatTextWithCitations(text: string, key: string, matchCards?: any[], 
 function formatEmphasis(text: string, key: string) {
   // Bold: **text**, Italic: *text* or _text_
   // Process bold first, then italic.
-  const boldSplit = text.split(/(\*\*[^*]+\*\*)/g);
+  // Handle edge case: "**:" becomes just ":"
+  const cleanedText = text.replace(/\*\*:/g, ':');
+
+  const boldSplit = cleanedText.split(/(\*\*[^*]+\*\*)/g);
   const out: React.ReactNode[] = [];
   boldSplit.forEach((seg, idx) => {
     const b = seg.match(/^\*\*([^*]+)\*\*$/);

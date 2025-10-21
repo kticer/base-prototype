@@ -68,6 +68,8 @@ export interface CommentData {
   createdAt: string;
   /** ISO timestamp when comment was last updated */
   updatedAt: string;
+  /** Source of the comment (manual, chat, ai-suggestion) */
+  source?: 'manual' | 'chat' | 'ai-suggestion';
 }
 
 /**
@@ -2185,6 +2187,7 @@ export const useStore = create<StoreState>((set, get) => ({
         text: selectedText,
         startOffset,
         endOffset,
+        source: 'chat',
       });
 
       console.log(`✅ Inline comment added successfully on page ${commentPage}`);

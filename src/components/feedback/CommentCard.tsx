@@ -16,6 +16,7 @@ interface CommentCardProps {
   createdAt?: string;
   isUserCreated?: boolean;
   commentId?: string;
+  source?: 'manual' | 'chat' | 'ai-suggestion';
 }
 
 export function CommentCard({
@@ -29,6 +30,7 @@ export function CommentCard({
   createdAt,
   isUserCreated = true,
   commentId,
+  source,
 }: CommentCardProps) {
   void _position; // Acknowledged unused parameter
   const comments = useStore((state) => state.comments);
@@ -528,7 +530,7 @@ export function CommentCard({
           </div>
         ) : (
           <>
-            <div 
+            <div
               className={`text-sm leading-relaxed text-gray-900 p-2 -m-2 rounded transition-colors cursor-pointer ${
                 isContentHovered ? 'bg-gray-100' : ''
               }`}
@@ -539,9 +541,19 @@ export function CommentCard({
                 setIsEditing(true);
               }}
             >
-              {content}
+              <div className="flex items-start gap-2">
+                <span className="flex-1">{content}</span>
+                {source === 'chat' && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded border border-blue-200 shrink-0">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    AI
+                  </span>
+                )}
+              </div>
             </div>
-            
+
             {/* Commenter info - only show when active/selected */}
             {isActive && (
               <div className="mt-3 pt-2 border-t border-gray-100">

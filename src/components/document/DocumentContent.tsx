@@ -71,7 +71,7 @@ export function DocumentContent({
         paddingRight: showComments ? '340px' : '24px',
       }}
     >
-      <div className="w-full flex justify-center">
+      <div className="w-full flex justify-center relative">
         <div
           className="max-w-[872px] w-full relative transition-transform duration-300 ease-in-out"
           style={{
@@ -108,13 +108,13 @@ export function DocumentContent({
             />
           ))}
 
-          {/* Floating Comment Cards - positioned relative to paper */}
+          {/* Floating Comment Cards - positioned inside the transformed paper container */}
           {showComments && <FloatingCommentCards />}
         </div>
       </div>
 
-      {/* Document Page Controls - Fixed position relative to main content */}
-      <div className="absolute bottom-4 left-4 z-30 pointer-events-none">
+      {/* Document Page Controls - Fixed position at bottom left */}
+      <div className="fixed bottom-4 left-4 z-30 pointer-events-none">
         <div className="pointer-events-auto">
           <DocumentPageControls
             currentPage={currentPage}

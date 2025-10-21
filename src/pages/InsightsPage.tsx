@@ -89,9 +89,71 @@ export default function InsightsPage() {
     return { total, avgSim, distribution };
   }, [rootItems]);
 
+  // Compute metrics for chat context
+  const insightsMetrics = useMemo(() => {
+    if (!analytics) return null;
+
+    // High priority interventions
+    const highPriorityInterventions = analytics.integrityIssuesCount;
+    const mediumPriorityCount = analytics.highRiskCount - analytics.integrityIssuesCount;
+
+    // Top sources breakdown
+    const topInternetSources = analytics.commonSources.filter(s => s.sourceType === 'Internet').length;
+    const topPublicationSources = analytics.commonSources.filter(s => s.sourceType === 'Publication').length;
+    const topStudentWorkSources = analytics.commonSources.filter(s => s.sourceType === 'Submitted Works').length;
+
+    // Most problematic source (highest occurrence + uncited)
+    const mostProblematicSource = analytics.commonSources
+      .filter(s => !s.typicallyCited)
+      .sort((a, b) => b.occurrenceCount - a.occurrenceCount)[0];
+
+    // Citation quality breakdown
+    const citationRate = analytics.citationPatterns.properCitationRate;
+    const citationQuality = citationRate >= 80 ? 'good' : citationRate >= 60 ? 'fair' : 'poor';
+
+    // Similarity risk breakdown
+    const lowRiskCount = analytics.totalSubmissions - analytics.highRiskCount - mediumPriorityCount;
+
+    return {
+      totalSubmissions: analytics.totalSubmissions,
+      avgSimilarity: analytics.averageSimilarity,
+      medianSimilarity: analytics.medianSimilarity,
+      highRiskCount: analytics.highRiskCount,
+      mediumRiskCount: mediumPriorityCount,
+      lowRiskCount: lowRiskCount > 0 ? lowRiskCount : 0,
+      integrityIssuesCount: analytics.integrityIssuesCount,
+      highPriorityInterventions,
+      totalInterventionsNeeded: analytics.highRiskCount,
+      topSourcesBreakdown: {
+        internet: topInternetSources,
+        publications: topPublicationSources,
+        studentWork: topStudentWorkSources,
+        total: analytics.commonSources.length,
+      },
+      mostProblematicSource: mostProblematicSource ? {
+        name: mostProblematicSource.sourceName,
+        affectedStudents: mostProblematicSource.occurrenceCount,
+        avgSimilarity: mostProblematicSource.averageSimilarity,
+      } : null,
+      citationQuality: {
+        rate: citationRate,
+        rating: citationQuality,
+        properlyCited: analytics.citationPatterns.properlyCited,
+        uncited: analytics.citationPatterns.uncited,
+        improperlyCited: analytics.citationPatterns.improperlyCited,
+      },
+      similarityRange: {
+        min: analytics.minSimilarity,
+        max: analytics.maxSimilarity,
+        spread: analytics.maxSimilarity - analytics.minSimilarity,
+      },
+    };
+  }, [analytics]);
+
   // Context data for chat (use course analytics if available, fallback to basic stats)
   const chatContext = analytics ? {
     screen: 'insights' as const,
+    metrics: insightsMetrics,
     courseAnalytics: analytics,
     totalDocuments: analytics.totalSubmissions,
     avgSimilarity: analytics.averageSimilarity,
@@ -104,12 +166,59 @@ export default function InsightsPage() {
     avgSimilarity: stats.avgSim,
   };
 
-  const promptSuggestions = [
-    "Summarize the course similarity insights",
-    "Which students need intervention?",
-    "What are the most common sources?",
-    "How can I improve citation rates?",
-  ];
+  // Dynamic, analytics-focused suggestions for instructors
+  const promptSuggestions = useMemo(() => {
+    const suggestions: string[] = [];
+
+    if (!insightsMetrics) {
+      return [
+        "What patterns should I look for in course analytics?",
+        "How can I use this data to improve student learning?",
+      ];
+    }
+
+    // High priority: Integrity issues
+    if (insightsMetrics.highPriorityInterventions > 0) {
+      suggestions.push(`Which ${insightsMetrics.highPriorityInterventions} student${insightsMetrics.highPriorityInterventions > 1 ? 's' : ''} with integrity concerns should I contact first?`);
+    }
+
+    // Citation quality concerns
+    if (insightsMetrics.citationQuality.rating === 'poor') {
+      suggestions.push(`How can I address the ${insightsMetrics.citationQuality.rate}% citation rate in my next class?`);
+    } else if (insightsMetrics.citationQuality.rating === 'fair') {
+      suggestions.push("What resources can help students improve their citation skills?");
+    }
+
+    // Problematic source patterns
+    if (insightsMetrics.mostProblematicSource) {
+      suggestions.push(`Why are ${insightsMetrics.mostProblematicSource.affectedStudents} students using "${insightsMetrics.mostProblematicSource.name}"?`);
+    }
+
+    // Overall course trends
+    if (insightsMetrics.avgSimilarity > 30) {
+      suggestions.push("Should I adjust my assignment to reduce similarity scores?");
+    } else if (insightsMetrics.avgSimilarity < 15) {
+      suggestions.push("Are students conducting enough research for this assignment?");
+    }
+
+    // Risk distribution analysis
+    if (insightsMetrics.highRiskCount > insightsMetrics.totalSubmissions * 0.2) {
+      suggestions.push(`What's causing ${insightsMetrics.highRiskCount} high-risk submissions in this assignment?`);
+    }
+
+    // Workload planning
+    if (insightsMetrics.totalInterventionsNeeded > 5) {
+      suggestions.push("Help me prioritize my academic integrity follow-ups");
+    }
+
+    // General insights if no specific concerns
+    if (suggestions.length === 0) {
+      suggestions.push("What does this data tell me about my students' research skills?");
+      suggestions.push("How does this assignment compare to typical benchmarks?");
+    }
+
+    return suggestions.slice(0, 4); // Limit to 4 suggestions
+  }, [insightsMetrics]);
 
   // Calculate padding for main content when chat is open in shrink mode
   const chatPadding = (() => {

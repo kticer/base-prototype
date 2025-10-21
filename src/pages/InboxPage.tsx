@@ -232,11 +232,48 @@ useEffect(() => {
     })).slice(0, 50), // Limit to first 50 to avoid context overflow
   };
 
-  const promptSuggestions = [
-    "What's the average similarity score?",
-    "Show me submissions with high similarity",
-    "How many submissions need grading?",
-  ];
+  // Dynamic, context-aware suggestions based on inbox state
+  const promptSuggestions = useMemo(() => {
+    const suggestions: string[] = [];
+
+    // Priority: Ungraded submissions
+    if (inboxMetrics.ungraded > 0) {
+      suggestions.push(`Which of the ${inboxMetrics.ungraded} ungraded submissions should I prioritize?`);
+    }
+
+    // High-risk submissions
+    if (inboxMetrics.highSimilarity > 0) {
+      suggestions.push(`Show me the ${inboxMetrics.highSimilarity} high-risk submission${inboxMetrics.highSimilarity > 1 ? 's' : ''} that need immediate review`);
+    }
+
+    // Recent submissions needing attention
+    if (inboxMetrics.recentSubmissions > 0) {
+      suggestions.push(`Help me plan my grading for the ${inboxMetrics.recentSubmissions} recent submission${inboxMetrics.recentSubmissions > 1 ? 's' : ''}`);
+    }
+
+    // Overall workload management
+    if (inboxMetrics.ungraded > 5) {
+      suggestions.push("What's a realistic grading schedule for my workload?");
+    }
+
+    // Comparison and patterns
+    if (submissions.length > 10) {
+      suggestions.push("Are there any patterns in similarity scores I should investigate?");
+    }
+
+    // Selected items actions
+    if (selectedIds.size > 0) {
+      suggestions.push(`What should I do with these ${selectedIds.size} selected submissions?`);
+    }
+
+    // If no specific suggestions, offer general ones
+    if (suggestions.length === 0) {
+      suggestions.push("How is my class performing overall?");
+      suggestions.push("Which students might need academic integrity follow-up?");
+    }
+
+    return suggestions.slice(0, 4); // Limit to 4 suggestions
+  }, [inboxMetrics, submissions.length, selectedIds.size]);
 
   const areAllSelected = filtered.length > 0 && filtered.every((item) => selectedIds.has(item.id));
   const toggleSelectAll = () => {

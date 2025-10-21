@@ -83,11 +83,15 @@ export function useResponsiveLayout(
       let scale = 1.0;
       let hideComments = false;
 
-      if (availableWidth < 1000 && showCommentColumn) {
-        // Below 1000px with comments: hide comments and scale paper to fit
-        hideComments = true;
-        const scaleNeeded = Math.min(1.0, (availableWidth - PADDING * 2) / PAPER_WIDTH);
+      // Calculate if we have enough space for both paper and comments
+      const minSpaceForComments = PAPER_WIDTH + COMMENT_WIDTH + PADDING * 2;
+
+      if (availableWidth < minSpaceForComments && showCommentColumn) {
+        // Not enough space: scale everything to fit
+        const scaleNeeded = Math.min(1.0, availableWidth / minSpaceForComments);
         scale = Math.max(0.6, scaleNeeded); // Minimum 60% scale
+        // Keep comments visible if we can fit them at scaled size
+        hideComments = availableWidth < 800; // Only hide below 800px
       } else if (availableForPaper < PAPER_WIDTH) {
         // Scale paper to fit available space
         scale = Math.max(0.6, availableForPaper / PAPER_WIDTH);

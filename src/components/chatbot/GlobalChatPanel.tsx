@@ -47,7 +47,7 @@ export default function GlobalChatPanel({
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const [showContextHelp, setShowContextHelp] = useState(false);
   const [showFollowUps, setShowFollowUps] = useState<Record<number, boolean>>({});
-  const [suggestionsExpanded, setSuggestionsExpanded] = useState(true);
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -109,19 +109,35 @@ export default function GlobalChatPanel({
     };
   }, [isResizing, setChatPanelWidth]);
 
-  const sendMessage = async () => {
-    const prompt = input.trim();
+  const sendMessage = async (overridePrompt?: string) => {
+    const raw = overridePrompt ?? input;
+    const prompt = (raw || '').trim();
     if (!prompt || busy || !currentScreen) return;
 
-    setInput('');
+    if (!overridePrompt) setInput('');
     setBusy(true);
     setLastPrompt(prompt); // Store for fallback action button generation
 
     // Add user message
     addChatMessage({ role: 'user', content: prompt });
 
-    // Detect if user is requesting a rubric/artifact (stricter matching)
-    // Must have BOTH an action verb AND the word "rubric" explicitly
+    // Classify desired artifact type (only if clearly requested)
+    const classifyDesiredArtifact = (text: string, screen: string | null): 'rubric' | 'feedback-plan' | 'report' | 'table' | null => {
+      const t = text.toLowerCase();
+      const actionVerb = /(create|generate|make|build|design|draft|write|produce)/.test(t);
+      // Rubric only when explicitly asked
+      if (actionVerb && /\brubric(s)?\b|grading criteria|assessment rubric/.test(t)) return 'rubric';
+      // Feedback plan intents
+      if (actionVerb && /(feedback plan|meeting plan|conference plan|talking points|intervention plan|action plan)/.test(t)) return 'feedback-plan';
+      // Report intents only when explicitly asked to create a report
+      if (actionVerb && /\breport\b/.test(t)) return 'report';
+      // Table intents, especially on inbox/insights
+      if ((/\btable\b|\btabular\b/.test(t) || (/show|list|rank|prioritize|which|top\s+\d+/).test(t)) && (screen === 'inbox' || screen === 'insights')) return 'table';
+      return null;
+    };
+
+    const desiredType = classifyDesiredArtifact(prompt, currentScreen);
+    // Back-compat rubric detection used elsewhere
     const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(prompt);
     const hasRubricKeyword = /\brubric\b/i.test(prompt);
     const isRubricRequest = hasActionVerb && hasRubricKeyword;
@@ -132,9 +148,14 @@ export default function GlobalChatPanel({
       const startTime = Date.now();
 
       // Enhance prompt if rubric requested but not explicitly structured
-      const enhancedPrompt = isRubricRequest && !prompt.includes('```json')
-        ? `${prompt}\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`
-        : prompt;
+      let enhancedPrompt = prompt;
+      if (desiredType === 'rubric' && !prompt.includes('```json')) {
+        enhancedPrompt += `\n\nIMPORTANT: Only because I asked for a rubric, provide it in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`;
+      } else if (desiredType && desiredType !== 'rubric' && !prompt.includes('```json')) {
+        enhancedPrompt += `\n\nIf you produce a structured artifact, use a \`\`\`json code block with type:"${desiredType}". Otherwise reply with well-formatted Markdown (headings and bullets). Do NOT generate a rubric.`;
+      } else if (!desiredType) {
+        enhancedPrompt += `\n\nUnless explicitly asked for a structure, respond with clear, well-formatted Markdown. Do NOT generate a rubric unless I explicitly ask for a rubric.`;
+      }
 
       // Include conversation history (last 10 messages for context)
       const conversationHistory = messages.slice(-10);
@@ -157,17 +178,32 @@ export default function GlobalChatPanel({
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1]);
-          // Accept different artifact types
-          if (parsed.type === 'rubric' && parsed.criteria) {
-            artifact = parsed;
-            console.log('✅ Found structured rubric artifact');
-          } else if (parsed.type === 'report' || parsed.type === 'table' || parsed.type === 'data') {
-            artifact = parsed;
-            console.log('✅ Found structured report/table artifact');
+          const parsedType = parsed && typeof parsed.type === 'string' ? String(parsed.type) : '';
+          // Accept only appropriate artifact types
+          if (parsedType === 'rubric') {
+            // Only allow rubric artifacts when explicitly requested
+            if (isRubricRequest || desiredType === 'rubric') {
+              if (parsed.criteria) {
+                artifact = parsed;
+                console.log('✅ Accepted rubric artifact (explicitly requested)');
+              }
+            } else {
+              console.log('🚫 Ignoring rubric artifact (not requested)');
+            }
+          } else if (parsedType === 'report' || parsedType === 'table' || parsedType === 'feedback-plan') {
+            // Allow other artifact types when provided; if desiredType specified, require match
+            if (!desiredType || desiredType === parsedType) {
+              artifact = parsed;
+              console.log('✅ Accepted artifact:', parsedType);
+            } else {
+              console.log('🚫 Ignoring artifact mismatch. Wanted:', desiredType, 'Got:', parsedType);
+            }
           } else if (parsed.type) {
-            // Accept any structured artifact with a type field
-            artifact = parsed;
-            console.log('✅ Found structured artifact:', parsed.type);
+            // Accept any structured artifact with a type field if it's not rubric and not conflicting
+            if (parsedType !== 'rubric' && (!desiredType || desiredType === parsedType)) {
+              artifact = parsed;
+              console.log('✅ Accepted generic artifact:', parsedType);
+            }
           }
 
           // Set artifact if found
@@ -203,7 +239,7 @@ export default function GlobalChatPanel({
       }
 
       // If rubric was explicitly requested but not found, log a warning
-      if (!artifact && isRubricRequest) {
+      if (!artifact && (isRubricRequest || desiredType === 'rubric')) {
         console.warn('⚠️ Rubric requested but AI did not provide properly formatted JSON');
       }
     } catch (error) {
@@ -308,25 +344,40 @@ export default function GlobalChatPanel({
         }
 
         case 'add_comment': {
-          // Payload contains the comment text
-          const text = action.payload || action.label;
-          handleAddCommentAction({ text });
+          // Payload can be a string or object with {text, highlightId, page}
+          let text: string;
+          let highlightId: string | undefined;
+          let page: number | undefined;
+
+          if (typeof action.payload === 'object' && action.payload !== null) {
+            text = action.payload.text || action.label;
+            highlightId = action.payload.highlightId;
+            page = action.payload.page;
+          } else {
+            text = action.payload || action.label;
+          }
+
+          // Remove any [ACTION:...] syntax from the comment text
+          text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          handleAddCommentAction({ text, highlightId, page });
 
           addChatMessage({
             role: 'system',
-            content: '✅ Inline comment added to document.',
+            content: '✓ Comment added',
           });
           break;
         }
 
         case 'add_summary_comment': {
-          // Payload contains the summary comment text
-          const text = action.payload || action.label;
+          // Payload contains the summary comment text - strip any ACTION syntax
+          let text = action.payload || action.label;
+          // Remove any [ACTION:...] syntax from the comment text
+          text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
           handleAddSummaryCommentAction({ text });
 
           addChatMessage({
             role: 'system',
-            content: '✅ Summary comment added to Feedback panel.',
+            content: '✓ Summary added',
           });
           break;
         }
@@ -338,7 +389,7 @@ export default function GlobalChatPanel({
             handleHighlightTextAction({ matchCardId });
             addChatMessage({
               role: 'system',
-              content: '✅ Navigated to highlighted text.',
+              content: '✓ Navigated',
             });
           }
           break;
@@ -349,7 +400,7 @@ export default function GlobalChatPanel({
             onNavigate(action.payload);
             addChatMessage({
               role: 'system',
-              content: `✅ Navigated to ${action.payload}.`,
+              content: `✓ Switched to ${action.payload}`,
             });
           }
           break;
@@ -359,10 +410,7 @@ export default function GlobalChatPanel({
           const matchCardId = action.payload;
           if (matchCardId) {
             handleShowSourceAction({ matchCardId });
-            addChatMessage({
-              role: 'system',
-              content: '✅ Showing source details.',
-            });
+            // No confirmation message needed for show_source
           }
           break;
         }
@@ -378,7 +426,7 @@ export default function GlobalChatPanel({
           if (issues.length === 0) {
             addChatMessage({
               role: 'system',
-              content: '✅ No academic integrity issues found in this document.',
+              content: '✓ No issues found',
             });
             break;
           }
@@ -393,7 +441,7 @@ export default function GlobalChatPanel({
           if (nextIndex < 0 || nextIndex >= issues.length) {
             addChatMessage({
               role: 'system',
-              content: `✅ ${direction > 0 ? 'No more' : 'No previous'} issues to navigate to.`,
+              content: `✓ ${direction > 0 ? 'Last issue' : 'First issue'}`,
             });
             break;
           }
@@ -584,13 +632,6 @@ export default function GlobalChatPanel({
         }
         return;
       }
-
-      // Escape to close chat (only if open)
-      if (e.key === 'Escape' && chat.isOpen) {
-        e.preventDefault();
-        closeChat();
-        return;
-      }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -619,7 +660,17 @@ export default function GlobalChatPanel({
     // Add user message (show only the label to user)
     addChatMessage({ role: 'user', content: label });
 
-    // Use same strict rubric detection as handleSubmit
+    // Classify desired artifact for suggestions too
+    const classifyDesiredArtifact = (text: string, screen: string | null): 'rubric' | 'feedback-plan' | 'report' | 'table' | null => {
+      const t = text.toLowerCase();
+      const actionVerb = /(create|generate|make|build|design|draft|write|produce)/.test(t);
+      if (actionVerb && /\brubric(s)?\b|grading criteria|assessment rubric/.test(t)) return 'rubric';
+      if (actionVerb && /(feedback plan|meeting plan|conference plan|talking points|intervention plan|action plan)/.test(t)) return 'feedback-plan';
+      if (actionVerb && /\breport\b/.test(t)) return 'report';
+      if ((/\btable\b|\btabular\b/.test(t) || (/show|list|rank|prioritize|which|top\s+\d+/).test(t)) && (currentScreen === 'inbox' || currentScreen === 'insights')) return 'table';
+      return null;
+    };
+    const desiredType = classifyDesiredArtifact(label, currentScreen);
     const hasActionVerb = /\b(create|generate|make|build|design|draft|write)\b/i.test(label);
     const hasRubricKeyword = /\brubric\b/i.test(label);
     const isRubricRequest = hasActionVerb && hasRubricKeyword;
@@ -632,8 +683,12 @@ export default function GlobalChatPanel({
       if (contextEnhancement) {
         enhancedPrompt = `${label}\n\nContext: ${contextEnhancement}`;
       }
-      if (isRubricRequest && !label.includes('```json')) {
-        enhancedPrompt += `\n\nIMPORTANT: Please provide the rubric in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`;
+      if (desiredType === 'rubric' && !label.includes('```json')) {
+        enhancedPrompt += `\n\nIMPORTANT: Only because I asked for a rubric, provide it in the exact JSON format specified in the system instructions, wrapped in a \`\`\`json code fence.`;
+      } else if (desiredType && desiredType !== 'rubric' && !label.includes('```json')) {
+        enhancedPrompt += `\n\nIf you produce a structured artifact, use a \`\`\`json code block with type:"${desiredType}". Otherwise reply with well-formatted Markdown (headings and bullets). Do NOT generate a rubric.`;
+      } else if (!desiredType) {
+        enhancedPrompt += `\n\nUnless explicitly asked for a structure, respond with clear, well-formatted Markdown. Do NOT generate a rubric unless I explicitly ask for a rubric.`;
       }
 
       const response = await askGeminiStream(enhancedPrompt, contextData, (chunk) => {
@@ -648,14 +703,15 @@ export default function GlobalChatPanel({
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1]);
-          // Accept different artifact types
-          if (parsed.type === 'rubric' && parsed.criteria) {
-            artifact = parsed;
-          } else if (parsed.type === 'report' || parsed.type === 'table' || parsed.type === 'data') {
-            artifact = parsed;
+          const parsedType = parsed && typeof parsed.type === 'string' ? String(parsed.type) : '';
+          if (parsedType === 'rubric') {
+            if (isRubricRequest || desiredType === 'rubric') {
+              if (parsed.criteria) artifact = parsed;
+            }
+          } else if (parsedType === 'report' || parsedType === 'table' || parsedType === 'data' || parsedType === 'feedback-plan') {
+            if (!desiredType || desiredType === parsedType) artifact = parsed;
           } else if (parsed.type) {
-            // Accept any structured artifact with a type field
-            artifact = parsed;
+            if (parsedType !== 'rubric' && (!desiredType || desiredType === parsedType)) artifact = parsed;
           }
 
           if (artifact) {
@@ -687,7 +743,7 @@ export default function GlobalChatPanel({
         });
       }
 
-      if (!artifact && isRubricRequest) {
+      if (!artifact && (isRubricRequest || desiredType === 'rubric')) {
         console.warn('⚠️ Rubric requested but AI did not provide properly formatted JSON');
       }
     } catch (error) {
@@ -732,14 +788,16 @@ export default function GlobalChatPanel({
 
   // Handle regenerate response
   const handleRegenerateResponse = async (messageIndex: number) => {
-    // Find the user message that prompted this response
-    const userMessage = messages[messageIndex - 1];
-    if (!userMessage || userMessage.role !== 'user') {
+    // Find most recent user message before this assistant message
+    let userIdx = messageIndex - 1;
+    while (userIdx >= 0 && messages[userIdx].role !== 'user') userIdx--;
+    const userMessage = userIdx >= 0 ? messages[userIdx] : null;
+    if (!userMessage) {
       console.error('Cannot find user message to regenerate from');
       return;
     }
 
-    // Remove the AI response and regenerate
+    // Remove this assistant response (and anything after it)
     const updatedMessages = messages.slice(0, messageIndex);
     if (currentScreen) {
       useStore.setState(state => ({
@@ -756,7 +814,7 @@ export default function GlobalChatPanel({
       }));
     }
 
-    // Re-send the user's message
+    // Re-send using the original user prompt
     await sendMessage(userMessage.content);
   };
 
@@ -834,16 +892,19 @@ export default function GlobalChatPanel({
   const baseWidth = chat.panelWidth;
   const expandedWidth = chat.isGeneratingArtifact ? Math.min(baseWidth * 2, 900) : baseWidth;
 
+  // When an artifact is shown, force overlay to avoid pushing the document layout
+  const overlayActive = isOverlay || chat.isGeneratingArtifact;
+
   // In document viewer shrink mode: static positioning in flex layout
-  // In document viewer overlay mode OR other screens: use fixed positioning
-  const panelStyle: React.CSSProperties = isDocumentViewer && !isOverlay
+  // In overlay mode or other screens: use fixed positioning
+  const panelStyle: React.CSSProperties = isDocumentViewer && !overlayActive
     ? {
         // Document viewer, shrink mode: static in flex layout
         width: `${expandedWidth}px`,
         flexShrink: 0,
         transition: 'width 300ms ease-in-out',
       }
-    : isOverlay
+    : overlayActive
     ? {
         // Overlay mode (all screens): fixed with rounded corners
         position: 'fixed',
@@ -868,13 +929,13 @@ export default function GlobalChatPanel({
   return (
     <div
       ref={panelRef}
-      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${isOverlay ? 'shadow-2xl rounded-lg border' : 'h-full'} ${
-        isDocumentViewer && !isOverlay ? 'animate-slide-in-left' : isOverlay ? 'animate-slide-in-right' : 'animate-slide-in-right'
+      className={`flex ${chat.isGeneratingArtifact ? 'flex-row' : 'flex-col'} bg-white border-l ${overlayActive ? 'shadow-2xl rounded-lg border' : 'h-full'} ${
+        isDocumentViewer && !overlayActive ? 'animate-slide-in-left' : overlayActive ? 'animate-slide-in-right' : 'animate-slide-in-right'
       }`}
       style={panelStyle}
     >
       {/* Resize handle (only in shrink mode) */}
-      {!isOverlay && (
+      {!overlayActive && (
         <div
           className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
           onMouseDown={handleResizeStart}
@@ -954,7 +1015,7 @@ export default function GlobalChatPanel({
       </div>
 
       {/* Messages */}
-      <div ref={scrollerRef} className="flex-1 overflow-auto p-3 space-y-3 bg-gray-50">
+      <div ref={scrollerRef} className="flex-1 overflow-auto p-3 bg-gray-50">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 text-sm mt-8 px-4">
             <p className="mb-6 text-base">👋 Hi! I'm your AI assistant.</p>
@@ -999,19 +1060,25 @@ export default function GlobalChatPanel({
           }
 
           return (
-            <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+            <div key={msg.id} className={`${msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'} ${msg.role === 'system' ? 'mt-1' : 'mt-3'}`}>
               <div
                 className={
-                  'max-w-[85%] rounded text-sm overflow-hidden ' +
+                  'max-w-[85%] rounded overflow-hidden ' +
                   (msg.role === 'user'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-600 text-white text-sm'
                     : msg.role === 'system'
-                    ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                    : 'bg-white border')
+                    ? 'bg-transparent text-gray-600 text-xs'
+                    : 'bg-white border text-sm')
                 }
               >
                 {/* Message content with padding */}
-                <div className={msg.role === 'user' ? 'px-3 py-2 whitespace-pre-wrap' : 'px-3 py-2'}>
+                <div className={
+                  msg.role === 'user'
+                    ? 'px-3 py-2 whitespace-pre-wrap'
+                    : msg.role === 'system'
+                    ? 'px-2 py-0.5'
+                    : 'px-3 py-2'
+                }>
                   {msg.role === 'assistant' && msg.engine === 'gemini' && (
                     <div className="text-[10px] text-gray-400 mb-1 flex items-center gap-2">
                       <span>Gemini</span>
@@ -1277,7 +1344,7 @@ export default function GlobalChatPanel({
       {(chat.isGeneratingArtifact || isClosingArtifact) && chat.currentArtifact && (
         <div className={`w-3/5 flex flex-col bg-gray-50 ${isClosingArtifact ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
           <div className="flex items-center justify-between p-3 border-b bg-white">
-            <h3 className="font-semibold text-sm">📝 Generated Artifact</h3>
+            <h3 className="font-semibold text-sm">📝 {chat.currentArtifact?.type ? String(chat.currentArtifact.type).replace(/\b\w/g, c => c.toUpperCase()) : 'Artifact'}{chat.currentArtifact?.title ? `: ${chat.currentArtifact.title}` : ''}</h3>
             <button
               onClick={() => {
                 setIsClosingArtifact(true);
@@ -1296,49 +1363,43 @@ export default function GlobalChatPanel({
             <ArtifactPreview artifact={chat.currentArtifact} />
           </div>
           <div className="border-t p-3 bg-white flex gap-2">
-            <button
-              onClick={() => {
-                // TODO: Implement edit functionality - navigate to rubric creator
-                console.log('Edit rubric:', chat.currentArtifact);
-              }}
-              className="flex-1 px-3 py-2 border rounded text-sm hover:bg-gray-50"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => {
-                if (chat.currentArtifact?.type === 'rubric') {
-                  const rubric = {
-                    id: `rubric-${Date.now()}`,
-                    title: chat.currentArtifact.title || 'Untitled Rubric',
-                    type: chat.currentArtifact.layout || 'weighted',
-                    criteria: chat.currentArtifact.criteria || [],
-                    scales: chat.currentArtifact.scales || [],
-                    createdAt: new Date().toISOString(),
-                    lastModified: new Date().toISOString(),
-                  };
+            {chat.currentArtifact?.type === 'rubric' && (
+              <button
+                onClick={() => {
+                  console.log('Edit rubric:', chat.currentArtifact);
+                }}
+                className="flex-1 px-3 py-2 border rounded text-sm hover:bg-gray-50"
+              >
+                Edit
+              </button>
+            )}
+            {chat.currentArtifact?.type === 'rubric' && (
+              <button
+                onClick={() => {
+                  if (chat.currentArtifact?.type === 'rubric') {
+                    const rubric = {
+                      id: `rubric-${Date.now()}`,
+                      title: chat.currentArtifact.title || 'Untitled Rubric',
+                      type: chat.currentArtifact.layout || 'weighted',
+                      criteria: chat.currentArtifact.criteria || [],
+                      scales: chat.currentArtifact.scales || [],
+                      createdAt: new Date().toISOString(),
+                      lastModified: new Date().toISOString(),
+                    };
 
-                  // Add to rubrics list
-                  useStore.setState((state) => ({
-                    rubrics: [...state.rubrics, rubric]
-                  }));
+                    // Add to rubrics list and save
+                    useStore.setState((state) => ({ rubrics: [...state.rubrics, rubric] }));
+                    useStore.getState().saveRubrics();
 
-                  // Save to localStorage
-                  useStore.getState().saveRubrics();
-
-                  // Show success message
-                  addChatMessage({
-                    role: 'system',
-                    content: `✅ Rubric "${rubric.title}" saved successfully!`,
-                  });
-
-                  console.log('Saved rubric:', rubric);
-                }
-              }}
-              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Save to Rubrics
-            </button>
+                    addChatMessage({ role: 'system', content: `✓ Rubric saved` });
+                    console.log('Saved rubric:', rubric);
+                  }
+                }}
+                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                Save to Rubrics
+              </button>
+            )}
             <button
               onClick={() => {
                 if (chat.currentArtifact) {
@@ -1348,16 +1409,18 @@ export default function GlobalChatPanel({
                   const url = URL.createObjectURL(dataBlob);
                   const link = document.createElement('a');
                   link.href = url;
-                  link.download = `${chat.currentArtifact.title || 'rubric'}-${Date.now()}.json`;
+                  const safeTitle = (chat.currentArtifact.title || 'artifact').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                  const typePrefix = (chat.currentArtifact.type || 'artifact').toString();
+                  link.download = `${typePrefix}-${safeTitle}-${Date.now()}.json`;
                   link.click();
                   URL.revokeObjectURL(url);
 
-                  console.log('Exported rubric:', chat.currentArtifact);
+                  console.log('Exported artifact:', chat.currentArtifact);
                 }
               }}
               className="px-3 py-2 border rounded text-sm hover:bg-gray-50"
             >
-              Export
+              Export JSON
             </button>
           </div>
         </div>
@@ -1368,10 +1431,28 @@ export default function GlobalChatPanel({
 
 // Artifact Preview Component
 function ArtifactPreview({ artifact }: { artifact: any }) {
-  if (!artifact || artifact.type !== 'rubric') {
-    return <div className="text-sm text-gray-500">Unknown artifact type</div>;
+  if (!artifact) {
+    return <div className="text-sm text-gray-500">No artifact to display</div>;
   }
 
+  // Render based on artifact type
+  switch (artifact.type) {
+    case 'rubric':
+      return <RubricArtifact artifact={artifact} />;
+    case 'feedback-plan':
+      return <FeedbackPlanArtifact artifact={artifact} />;
+    case 'report':
+      return <ReportArtifact artifact={artifact} />;
+    case 'table':
+      return <TableArtifact artifact={artifact} />;
+    default:
+      // Fallback to a generic viewer for unknown or missing types
+      return <GenericArtifact artifact={artifact} />;
+  }
+}
+
+// Rubric Artifact Component
+function RubricArtifact({ artifact }: { artifact: any }) {
   const { title, layout, criteria } = artifact;
 
   return (
@@ -1421,6 +1502,120 @@ function ArtifactPreview({ artifact }: { artifact: any }) {
 
       <div className="text-right text-sm font-semibold text-gray-700">
         Total: {criteria?.reduce((sum: number, c: any) => sum + (c.points || 0), 0)} points
+      </div>
+    </div>
+  );
+}
+
+// Feedback Plan Artifact Component
+function FeedbackPlanArtifact({ artifact }: { artifact: any }) {
+  const { title, sections } = artifact;
+
+  return (
+    <div className="bg-white rounded-lg border p-4 space-y-4">
+      <div>
+        <h4 className="font-bold text-lg">{title || 'Feedback Plan'}</h4>
+        <div className="text-xs text-gray-500 mt-1">Meeting Plan for Student</div>
+      </div>
+
+      <div className="space-y-4">
+        {sections?.map((section: any, idx: number) => (
+          <div key={idx} className="border-l-4 border-blue-500 pl-4 py-2">
+            <div className="font-semibold text-sm text-blue-900 mb-2">{section.heading}</div>
+            <div className="text-sm text-gray-700 whitespace-pre-wrap">{section.content}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Report Artifact Component
+function ReportArtifact({ artifact }: { artifact: any }) {
+  const { title, sections } = artifact;
+
+  return (
+    <div className="bg-white rounded-lg border p-4 space-y-4">
+      <div>
+        <h4 className="font-bold text-lg">{title || 'Report'}</h4>
+        <div className="text-xs text-gray-500 mt-1">Analysis Report</div>
+      </div>
+
+      <div className="space-y-4">
+        {sections?.map((section: any, idx: number) => (
+          <div key={idx} className="space-y-2">
+            <h5 className="font-semibold text-sm text-gray-900">{section.heading}</h5>
+            {section.content && (
+              <p className="text-sm text-gray-700">{section.content}</p>
+            )}
+            {section.items && (
+              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                {section.items.map((item: string, itemIdx: number) => (
+                  <li key={itemIdx}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Table Artifact Component
+function TableArtifact({ artifact }: { artifact: any }) {
+  const { title, headers, rows } = artifact;
+
+  return (
+    <div className="bg-white rounded-lg border p-4 space-y-4">
+      <div>
+        <h4 className="font-bold text-lg">{title || 'Data Table'}</h4>
+        <div className="text-xs text-gray-500 mt-1">Tabular Data</div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm border-collapse border border-gray-300">
+          <thead className="bg-gray-50">
+            <tr>
+              {headers?.map((header: string, idx: number) => (
+                <th key={idx} className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-900">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows?.map((row: any[], rowIdx: number) => (
+              <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                {row.map((cell: any, cellIdx: number) => (
+                  <td key={cellIdx} className="border border-gray-300 px-3 py-2 text-gray-700">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Generic Artifact Component (fallback)
+function GenericArtifact({ artifact }: { artifact: any }) {
+  const type = artifact?.type || 'generic';
+  const title = artifact?.title || 'Artifact';
+  const json = JSON.stringify(artifact, null, 2);
+
+  return (
+    <div className="bg-white rounded-lg border p-4 space-y-3">
+      <div>
+        <h4 className="font-bold text-lg">{title}</h4>
+        <div className="text-xs text-gray-500 mt-1">Type: {String(type)}</div>
+      </div>
+      <div className="text-xs text-gray-600">
+        <div className="mb-1 font-medium">Raw Data</div>
+        <pre className="bg-gray-50 border rounded p-3 overflow-auto text-xs"><code>{json}</code></pre>
       </div>
     </div>
   );

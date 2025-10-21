@@ -378,6 +378,50 @@ export default function DocumentViewer() {
     }
   }, [selectedSourceId, selectedMatchIndex, doc]);
 
+  // Compute metrics for chat context
+  const documentMetrics = useMemo(() => {
+    if (!doc) return null;
+
+    const totalMatches = doc.matchCards?.length || 0;
+    const citedMatches = doc.matchCards?.filter((card: any) => card.isCited).length || 0;
+    const uncitedMatches = totalMatches - citedMatches;
+    const integrityIssues = doc.matchCards?.filter((card: any) => card.academicIntegrityIssue).length || 0;
+
+    // Find largest match
+    const largestMatch = doc.matchCards?.reduce((max, card) => {
+      const percent = (card as any).similarityPercent || 0;
+      return percent > (max as any).similarityPercent ? card : max;
+    }, doc.matchCards[0]);
+
+    // Average match size
+    const avgMatchSize = totalMatches > 0
+      ? doc.matchCards.reduce((sum, card) => sum + ((card as any).similarityPercent || 0), 0) / totalMatches
+      : 0;
+
+    // Source type breakdown
+    const sourceTypes = doc.matchCards?.reduce((acc, card) => {
+      const type = (card as any).sourceType || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    return {
+      totalMatches,
+      citedMatches,
+      uncitedMatches,
+      integrityIssues,
+      largestMatchPercent: (largestMatch as any)?.similarityPercent || 0,
+      largestMatchSource: (largestMatch as any)?.sourceName || 'N/A',
+      avgMatchSize: Math.round(avgMatchSize * 10) / 10,
+      citedVsUncited: totalMatches > 0 ? {
+        cited: citedMatches,
+        uncited: uncitedMatches,
+        citedPercent: Math.round((citedMatches / totalMatches) * 100),
+      } : null,
+      sourceTypes,
+    };
+  }, [doc]);
+
   // Context data for chat (after pages is computed)
   const chatContext = doc ? {
     screen: 'document-viewer' as const,
@@ -388,6 +432,7 @@ export default function DocumentViewer() {
     },
     similarityScore: actualSimilarity ?? 0, // Use actual similarity from folder_structure.json
     wordCount,
+    metrics: documentMetrics,
     matchCards: doc.matchCards?.map(card => ({
       id: card.id,
       sourceName: (card as any).sourceName,
@@ -422,70 +467,103 @@ export default function DocumentViewer() {
     if (!doc) return [];
 
     const suggestions = [];
+    const citedCount = doc.matchCards ? doc.matchCards.filter((card: any) => card.isCited).length : 0;
+    const uncitedCount = (doc.matchCards?.length || 0) - citedCount;
+    const integrityIssues = doc.matchCards ? doc.matchCards.filter((card: any) => card.academicIntegrityIssue).length : 0;
+    const topSource = doc.matchCards && doc.matchCards.length > 0
+      ? doc.matchCards.reduce((max, card) =>
+          ((card as any).similarityPercent > (max as any).similarityPercent ? card : max), doc.matchCards[0])
+      : null;
 
-    // Always offer similarity explanation if we have a similarity score
-    if (actualSimilarity !== null && actualSimilarity > 0) {
-      const topSource = doc.matchCards && doc.matchCards.length > 0
-        ? doc.matchCards.reduce((max, card) =>
-            ((card as any).similarityPercent > (max as any).similarityPercent ? card : max), doc.matchCards[0])
-        : null;
+    // CONTEXT-AWARE SUGGESTIONS based on similarity level and integrity issues
+
+    // HIGH SIMILARITY (>30%) - Academic Integrity Focus
+    if (actualSimilarity !== null && actualSimilarity > 30) {
+      if (integrityIssues > 0) {
+        suggestions.push({
+          label: "Draft feedback about citation concerns",
+          contextEnhancement: `This submission has ${actualSimilarity}% similarity with ${integrityIssues} integrity issue${integrityIssues > 1 ? 's' : ''}. Draft constructive feedback for the student explaining the citation problems and how to properly attribute sources. Use metrics from context.`,
+        });
+
+        suggestions.push({
+          label: "Should I schedule a meeting with this student?",
+          contextEnhancement: `With ${actualSimilarity}% similarity and ${integrityIssues} integrity issue${integrityIssues > 1 ? 's' : ''}, help me decide if this warrants a one-on-one meeting or if written feedback is sufficient. Consider the severity and whether this appears intentional or due to citation skill gaps.`,
+        });
+
+        if (integrityIssues > 1) {
+          suggestions.push({
+            label: "Review each uncited match systematically",
+            contextEnhancement: `Walk me through each of the ${integrityIssues} uncited matches. For each, explain the severity and what feedback I should provide. Use the TopSources data with exact IDs.`,
+          });
+        }
+      } else {
+        suggestions.push({
+          label: "Evaluate the quality of source integration",
+          contextEnhancement: `This paper has ${actualSimilarity}% similarity but sources appear cited. Assess whether the student is over-relying on quotations vs. paraphrasing, and whether source integration is appropriate for the assignment level.`,
+        });
+      }
+    }
+
+    // MODERATE SIMILARITY (10-30%) - Assessment Focus
+    else if (actualSimilarity !== null && actualSimilarity >= 10 && actualSimilarity <= 30) {
+      if (uncitedCount > 0) {
+        suggestions.push({
+          label: "Check if uncited matches need citations",
+          contextEnhancement: `Review the ${uncitedCount} uncited match${uncitedCount > 1 ? 'es' : ''} to determine if they're common knowledge, properly paraphrased, or require citations.`,
+        });
+      }
 
       suggestions.push({
-        label: "Explain this similarity score",
-        contextEnhancement: `The document has a ${actualSimilarity}% similarity score. ${topSource ? `The largest match is a ${(topSource as any).similarityPercent}% match to "${(topSource as any).sourceName}" (ID: ${topSource.id}) which is ${(topSource as any).isCited ? 'cited' : 'NOT cited'}.` : ''} Focus on what this score means in academic integrity terms, identify the primary driver of the score, and distinguish between cited and uncited matches. If there are uncited sources making up significant portions, note the academic integrity concern. When referring to sources, always use their exact ID from the TopSources context (e.g., if discussing "${(topSource as any).sourceName}", use ID "${topSource.id}").`,
+        label: "Assess paraphrasing quality",
+        contextEnhancement: `With ${actualSimilarity}% similarity, evaluate whether the student is paraphrasing effectively or relying too heavily on source language. Look at specific matches to judge originality.`,
+      });
+
+      if (citedCount > 0) {
+        suggestions.push({
+          label: "Verify citation formatting is correct",
+          contextEnhancement: `Check if the ${citedCount} cited source${citedCount > 1 ? 's are' : ' is'} formatted according to the required citation style (MLA, APA, Chicago, etc.).`,
+        });
+      }
+    }
+
+    // LOW SIMILARITY (<10%) - Quality & Originality Focus
+    else if (actualSimilarity !== null && actualSimilarity < 10) {
+      suggestions.push({
+        label: "Evaluate argument originality and depth",
+        contextEnhancement: `Low similarity (${actualSimilarity}%) suggests original work. Assess the quality of the student's argument, critical thinking, and use of evidence.`,
+      });
+
+      if (doc.matchCards && doc.matchCards.length > 0) {
+        suggestions.push({
+          label: "Check if the student needs more sources",
+          contextEnhancement: `Only ${doc.matchCards.length} source${doc.matchCards.length > 1 ? 's' : ''} detected. Determine if the assignment requires more research support or if this is appropriate for the essay type.`,
+        });
+      }
+    }
+
+    // ALWAYS AVAILABLE - Grading & Feedback Actions
+    if (primaryTab === 'Grading') {
+      suggestions.push({
+        label: "Generate grading justification",
+        contextEnhancement: `Based on the similarity score (${actualSimilarity}%), ${integrityIssues} integrity issue${integrityIssues > 1 ? 's' : ''}, and overall quality, draft a brief justification for the grade I'm assigning to explain my evaluation to the student.`,
+      });
+    } else {
+      suggestions.push({
+        label: "What should I prioritize in my review?",
+        contextEnhancement: `Given ${actualSimilarity}% similarity, ${integrityIssues} integrity issue${integrityIssues > 1 ? 's' : ''}, and ${citedCount} cited source${citedCount > 1 ? 's' : ''}, help me prioritize what to focus on in my evaluation of this submission.`,
       });
     }
 
-    // Offer thesis identification with page context
-    const firstPageWordCount = doc.pages && doc.pages[0] ? doc.pages[0].content.split(/\s+/).length : 0;
-    const hasCitations = doc.matchCards && doc.matchCards.some((card: any) => card.isCited);
-    const citationCount = doc.matchCards ? doc.matchCards.filter((card: any) => card.isCited).length : 0;
-
-    suggestions.push({
-      label: "Identify the thesis statement",
-      contextEnhancement: `Analyze the first page content (approximately ${firstPageWordCount} words) to identify the thesis statement.
-
-IMPORTANT CONTEXT:
-- Document Title: "${doc.title}" (provides clues about the topic and scope)
-- Author: ${doc.author}
-- Total Pages: ${doc.pages?.length || 'unknown'}
-- Essay Type: ${hasCitations ? `Research essay with ${citationCount} cited sources` : 'Personal/expository essay without formal citations'}
-- Word Count: ~${wordCount} words (${wordCount < 800 ? 'short essay' : wordCount < 1500 ? 'medium essay' : 'long essay'})
-
-THESIS IDENTIFICATION GUIDELINES:
-1. The thesis is typically in the first page, often in the first 1-3 paragraphs
-2. For essays titled with a question (like "Why are there so many Oreo Flavors?"), the thesis often directly answers that question
-3. For research essays with citations, the thesis usually previews the argument and may mention key evidence
-4. For expository essays, the thesis states the main point or controlling idea
-5. Look for signals: "This essay will...", "I argue that...", "This paper explores...", or a clear declarative statement of the main claim
-6. The thesis should be specific, debatable (for argumentative essays), or clearly focused (for expository essays)
-
-YOUR TASK:
-- Quote the exact thesis statement you identify
-- Explain WHY you believe this is the thesis (what makes it the central claim?)
-- Note where it appears (paragraph number, approximate location)
-- If the thesis is implied rather than explicit, explain the main argument in your own words`,
-    });
-
-    // Offer source analysis if there are sources
-    if (doc.matchCards && doc.matchCards.length > 0) {
-      const citedCount = doc.matchCards.filter((card: any) => card.isCited).length;
-      const uncitedCount = doc.matchCards.length - citedCount;
-
+    // Tab-specific suggestions
+    if (primaryTab === 'AI Writing') {
       suggestions.push({
-        label: "List the primary sources cited",
-        contextEnhancement: `The document has ${doc.matchCards.length} matched sources (${citedCount} cited, ${uncitedCount} uncited). Review the last page content which likely contains the Works Cited or References section. List the primary sources that are properly cited, and note any major sources that appear to be missing from the citations.`,
+        label: "How should I address AI writing concerns?",
+        contextEnhancement: `If I suspect AI-generated content, what's the best approach for discussing this with the student while being fair and educational?`,
       });
     }
-
-    // Offer AI writing analysis with content context
-    suggestions.push({
-      label: "Analyze this paper for AI writing",
-      contextEnhancement: `Analyze the writing style, vocabulary, sentence structure, and flow of the current page content. Look for patterns that might indicate AI-generated text such as: overly formal or consistent tone, unusual word choices, repetitive sentence structures, lack of personal voice, or overly perfect grammar. Be specific about what patterns you observe. After analysis, navigate to the AI Writing tab using [ACTION:navigate|View AI Writing report|AI Writing].`,
-    });
 
     return suggestions;
-  }, [doc, actualSimilarity]);
+  }, [doc, actualSimilarity, primaryTab]);
 
   if (loading) return <div className="p-6">Loading document...</div>;
   if (!doc) return <div className="p-6">Document not found</div>;

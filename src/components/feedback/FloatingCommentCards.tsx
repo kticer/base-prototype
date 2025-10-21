@@ -17,6 +17,7 @@ export function FloatingCommentCards() {
   const showSimilarityHighlights = useStore((state) => state.tabState.showSimilarityHighlights);
   const [commentPositions, setCommentPositions] = useState<CommentPosition[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Show all comments on all tabs for universal comment visibility
   const relevantComments = useMemo(() => comments, [comments]);
@@ -89,23 +90,28 @@ export function FloatingCommentCards() {
         }
         
         if (top >= 0) {
+          // Try to get actual measured height from rendered card
+          const cardElement = cardRefs.current.get(comment.id);
+          const actualHeight = cardElement ? cardElement.offsetHeight : 120;
+
           positions.push({
             id: comment.id,
             top: top,
-            height: 120, // Approximate comment card height
+            height: actualHeight,
           });
         }
       });
 
-      // Sort by position and resolve collisions with 8px spacing
+      // Sort by position and resolve collisions with 12px spacing
       positions.sort((a, b) => a.top - b.top);
-      
+
       for (let i = 1; i < positions.length; i++) {
         const prev = positions[i - 1];
         const current = positions[i];
-        
-        if (current.top < prev.top + prev.height + 8) {
-          current.top = prev.top + prev.height + 8;
+
+        // Ensure current card is positioned below previous card with spacing
+        if (current.top < prev.top + prev.height + 12) {
+          current.top = prev.top + prev.height + 12;
         }
       }
 
@@ -120,6 +126,100 @@ export function FloatingCommentCards() {
       setCommentPositions([]);
     }
   }, [relevantComments, showSimilarityHighlights]); // Recalculate when similarity highlights are toggled
+
+  // Watch for card height changes and recalculate positions
+  useEffect(() => {
+    if (relevantComments.length === 0) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Recalculate positions when card heights change
+      const positions: CommentPosition[] = [];
+
+      relevantComments.forEach((comment) => {
+        const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
+        let top = 0;
+
+        if (highlightElement && containerRef.current) {
+          const highlightRect = highlightElement.getBoundingClientRect();
+          const containerRect = containerRef.current.getBoundingClientRect();
+          top = Math.round(highlightRect.top - containerRect.top);
+        } else {
+          const pageElement = document.querySelector(`[data-page-number="${comment.page}"]`);
+
+          if (pageElement && containerRef.current) {
+            const pageRect = pageElement.getBoundingClientRect();
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const paragraphs = pageElement.querySelectorAll('p');
+            let accumulatedOffset = 0;
+            let targetParagraph = null;
+            let offsetInParagraph = comment.startOffset;
+
+            for (const paragraph of paragraphs) {
+              const paragraphText = paragraph.textContent || '';
+              const paragraphLength = paragraphText.length;
+
+              if (accumulatedOffset + paragraphLength >= comment.startOffset) {
+                targetParagraph = paragraph;
+                offsetInParagraph = comment.startOffset - accumulatedOffset;
+                break;
+              }
+
+              accumulatedOffset += paragraphLength + 2;
+            }
+
+            if (targetParagraph) {
+              const paragraphRect = targetParagraph.getBoundingClientRect();
+              const paragraphTopInContainer = paragraphRect.top - containerRect.top;
+              const lineHeight = 20;
+              const charsPerLine = 100;
+              const lineOffset = Math.floor(offsetInParagraph / charsPerLine) * lineHeight;
+
+              top = Math.round(paragraphTopInContainer + lineOffset);
+            } else {
+              const pageTopInContainer = pageRect.top - containerRect.top;
+              const lineHeight = 24;
+              const charsPerLine = 80;
+              const estimatedLine = Math.floor(comment.startOffset / charsPerLine);
+
+              top = Math.round(pageTopInContainer + (estimatedLine * lineHeight));
+            }
+          }
+        }
+
+        if (top >= 0) {
+          const cardElement = cardRefs.current.get(comment.id);
+          const actualHeight = cardElement ? cardElement.offsetHeight : 120;
+
+          positions.push({
+            id: comment.id,
+            top: top,
+            height: actualHeight,
+          });
+        }
+      });
+
+      // Sort and resolve collisions
+      positions.sort((a, b) => a.top - b.top);
+      for (let i = 1; i < positions.length; i++) {
+        const prev = positions[i - 1];
+        const current = positions[i];
+        if (current.top < prev.top + prev.height + 12) {
+          current.top = prev.top + prev.height + 12;
+        }
+      }
+
+      setCommentPositions(positions);
+    });
+
+    // Observe all card elements
+    cardRefs.current.forEach((cardElement) => {
+      resizeObserver.observe(cardElement);
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [relevantComments]);
 
   // Add scroll listener with debounce for position updates
   useEffect(() => {
@@ -189,21 +289,25 @@ export function FloatingCommentCards() {
             }
             
             if (top >= 0) {
+              // Try to get actual measured height from rendered card
+              const cardElement = cardRefs.current.get(comment.id);
+              const actualHeight = cardElement ? cardElement.offsetHeight : 120;
+
               positions.push({
                 id: comment.id,
                 top: top,
-                height: 120,
+                height: actualHeight,
               });
             }
           });
 
-          // Sort and resolve collisions
+          // Sort and resolve collisions with 12px spacing
           positions.sort((a, b) => a.top - b.top);
           for (let i = 1; i < positions.length; i++) {
             const prev = positions[i - 1];
             const current = positions[i];
-            if (current.top < prev.top + prev.height + 8) {
-              current.top = prev.top + prev.height + 8;
+            if (current.top < prev.top + prev.height + 12) {
+              current.top = prev.top + prev.height + 12;
             }
           }
 
@@ -251,6 +355,13 @@ export function FloatingCommentCards() {
         return (
           <div
             key={comment.id}
+            ref={(el) => {
+              if (el) {
+                cardRefs.current.set(comment.id, el);
+              } else {
+                cardRefs.current.delete(comment.id);
+              }
+            }}
             className="absolute pointer-events-auto transition-all duration-200"
             style={{
               top: position ? `${position.top}px` : '0px',
@@ -269,6 +380,7 @@ export function FloatingCommentCards() {
               createdAt={comment.createdAt}
               isUserCreated={true} // All comments in prototype are user-created
               commentId={comment.id}
+              source={comment.source}
             />
           </div>
         );
