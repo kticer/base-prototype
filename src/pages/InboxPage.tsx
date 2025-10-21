@@ -460,11 +460,12 @@ useEffect(() => {
             Insights
           </button>
         </div>
-        <div className="px-8 pb-8 pt-4">
-          <div className="flex items-stretch gap-0">
-            <div className="flex-1 min-w-0">
-            {topTab === 'list' && (
-            <>
+        <div className="flex items-stretch gap-0">
+          {/* Left content column with its own padding */}
+          <div className="flex-1 min-w-0 px-8 pb-8 pt-4">
+            <div className="min-w-0">
+              {topTab === 'list' && (
+              <>
           {/* Action Toolbar */}
           <div className="bg-white px-4 py-2 border-b border-gray-200">
             <div className="flex justify-between items-center mb-4">
@@ -556,13 +557,13 @@ useEffect(() => {
               <InsightsPanel submissions={filtered} />
             )}
             </div>
-
-            {/* Chat integrated as sibling in layout (shrink mode) */}
-            <GlobalChatPanel
-              contextData={chatContext}
-              promptSuggestions={promptSuggestions}
-            />
           </div>
+
+          {/* Right: Chat panel in its own column (not constrained by left padding) */}
+          <GlobalChatPanel
+            contextData={chatContext}
+            promptSuggestions={promptSuggestions}
+          />
         </div>
       </div>
 

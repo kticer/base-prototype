@@ -232,48 +232,47 @@ export default function InsightsPage() {
         <InboxNavBar title="My Files" onSearchChange={() => {}} screen="insights" />
         <InboxTabs />
 
-        <div className="px-8 pb-8 pt-6">
-          {/* Header with Export Buttons */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Course Analytics</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Insights across all submissions in your course
-              </p>
+        {/* Two-column layout: left content with padding, right chat unconstrained by content padding */}
+        <div className="flex items-stretch gap-0">
+          <div className="flex-1 min-w-0 px-8 pb-8 pt-6">
+            {/* Header with Export Buttons */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Course Analytics</h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Insights across all submissions in your course
+                </p>
+              </div>
+              <ExportButtons />
             </div>
-            <ExportButtons />
+
+            {(loading || analyticsLoading) && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-500">Loading course analytics...</div>
+              </div>
+            )}
+
+            {error && <div className="text-red-600 mb-6">{error}</div>}
+
+            {!loading && !analyticsLoading && !error && analytics && (
+              <div className="space-y-6">
+                {/* Stats Cards */}
+                <CourseStatsCards />
+
+                {/* Distribution Chart */}
+                <SimilarityDistributionChart />
+
+                {/* Common Sources */}
+                <CommonSourcesTable />
+
+                {/* Student Interventions */}
+                <InterventionsTable />
+              </div>
+            )}
           </div>
 
-          {(loading || analyticsLoading) && (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-gray-500">Loading course analytics...</div>
-            </div>
-          )}
-
-          {error && <div className="text-red-600 mb-6">{error}</div>}
-
-          {!loading && !analyticsLoading && !error && analytics && (
-            <div className="space-y-6">
-              {/* Stats Cards */}
-              <CourseStatsCards />
-
-              {/* Distribution Chart */}
-              <SimilarityDistributionChart />
-
-              {/* Common Sources */}
-              <CommonSourcesTable />
-
-              {/* Student Interventions */}
-              <InterventionsTable />
-            </div>
-          )}
-          {/* Content + Chat: flex layout below navs */}
-          <div className="mt-6 flex items-stretch gap-0">
-            <div className="flex-1 min-w-0">
-              {/* The analytics content above is part of this container */}
-            </div>
-            <GlobalChatPanel contextData={chatContext} promptSuggestions={promptSuggestions} />
-          </div>
+          {/* Right: Chat panel */}
+          <GlobalChatPanel contextData={chatContext} promptSuggestions={promptSuggestions} />
         </div>
       </div>
 
