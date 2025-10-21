@@ -1,39 +1,49 @@
 import React from 'react';
 import { useCourseAnalytics } from '../../hooks/useCourseAnalytics';
 import { useStudentInterventions } from '../../hooks/useCourseAnalytics';
+import { useStore } from '../../store';
 
 export function GradingProgressTracker() {
   const { analytics } = useCourseAnalytics(false);
   const { patterns } = useStudentInterventions();
+  const courseSubmissions = useStore((s) => s.courseSubmissions);
 
   if (!analytics) return null;
 
-  // Calculate grading statistics
-  const graded = patterns.filter(p => p.integrityIssuesCount === 0).length; // Mock: assume no issues = graded
-  const needsReview = patterns.filter(p => p.needsIntervention).length;
+  // Calculate grading statistics to match Inbox prototype
   const total = analytics.totalSubmissions;
-  const ungraded = total - graded;
+
+  let graded = 0;
+  let needsReview = 0;
+  let ungraded = 0;
+
+  if (courseSubmissions && courseSubmissions.length > 0) {
+    // Prototype rule: first 8 submissions exist; first 5 graded, except a known doc becomes ungraded
+    const firstEight = courseSubmissions.slice(0, Math.min(8, courseSubmissions.length));
+    const plannedGradedCount = Math.min(5, firstEight.length);
+    const gradedIds = new Set(firstEight.slice(0, plannedGradedCount).map(s => s.id));
+    // Special case mirroring Inbox overrides
+    gradedIds.delete('doc-the-2018-golden-globes-jam-1751316856155-1');
+    graded = gradedIds.size;
+    ungraded = firstEight.length - graded;
+    // Needs review approximated from intervention flags
+    needsReview = patterns.filter(p => p.needsIntervention).length;
+  } else {
+    // Fallback approximation when submissions aren't loaded
+    graded = patterns.filter(p => p.integrityIssuesCount === 0).length;
+    needsReview = patterns.filter(p => p.needsIntervention).length;
+    ungraded = total - graded;
+  }
 
   const gradedPercent = (graded / total) * 100;
   const needsReviewPercent = (needsReview / total) * 100;
   const ungradedPercent = (ungraded / total) * 100;
 
-  // Mock deadline - 3 days from now
-  const deadline = new Date();
-  deadline.setDate(deadline.getDate() + 3);
-  const deadlineStr = deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  // Calculate pace
-  const daysUntilDeadline = 3;
-  const neededPerDay = Math.ceil(ungraded / daysUntilDeadline);
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Grading Progress</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Track completion status and deadline progress
-        </p>
+        <p className="text-sm text-gray-600 mt-1">Track completion status</p>
       </div>
 
       {/* Progress bar */}
@@ -80,19 +90,7 @@ export function GradingProgressTracker() {
         </div>
       </div>
 
-      {/* Deadline and pace */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <div className="text-xs text-blue-700 font-medium mb-1">Grading Deadline</div>
-          <div className="text-lg font-bold text-blue-900">{deadlineStr}</div>
-          <div className="text-xs text-blue-600 mt-1">{daysUntilDeadline} days remaining</div>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-          <div className="text-xs text-purple-700 font-medium mb-1">Required Pace</div>
-          <div className="text-lg font-bold text-purple-900">{neededPerDay} per day</div>
-          <div className="text-xs text-purple-600 mt-1">to meet deadline</div>
-        </div>
-      </div>
+      {/* Deadline and pace removed for Insights card */}
 
       {/* Status message */}
       {ungraded > 0 && (
