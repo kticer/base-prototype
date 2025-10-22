@@ -2144,7 +2144,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   handleAddCommentAction: (payload) => {
     try {
-      const { text, page = 1, highlightId } = payload;
+      const { text, page, highlightId } = payload;
 
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
         console.error('Cannot add comment: invalid text provided');
@@ -2154,43 +2154,125 @@ export const useStore = create<StoreState>((set, get) => ({
       const state = get();
 
       // Find highlight if provided
-      let commentPage = page;
+      let commentPage = page || 1;
       let position = 100; // default position
       let startOffset = 0;
       let endOffset = 0;
       let selectedText = '';
 
       if (highlightId) {
-        const highlight = state.matchCards
-          .flatMap(mc => mc.matches)
-          .find((m: any) => m.highlightId === highlightId);
+        // The highlightId might actually be a match card ID (like 'mc5')
+        // Try to resolve it to an actual highlight ID first
+        let actualHighlightId = highlightId;
 
-        if (highlight) {
-          const extendedHighlight = highlight as any;
-          commentPage = extendedHighlight.highlightId ? parseInt(extendedHighlight.highlightId.split('-')[0]) || page : page;
-          selectedText = extendedHighlight.matchedText || '';
-          // Approximate offsets from matched text length
-          startOffset = 0;
-          endOffset = selectedText.length;
-        } else {
-          console.warn(`Highlight ${highlightId} not found, using default position`);
+        // Check if this is a match card ID by looking it up
+        const matchCard = state.matchCards.find(mc => mc.id === highlightId);
+        if (matchCard && matchCard.matches && matchCard.matches.length > 0) {
+          // Get the first match's highlight ID
+          const firstMatch = matchCard.matches[0] as any;
+          if (firstMatch.highlightId) {
+            actualHighlightId = firstMatch.highlightId;
+            console.log(`Resolved match card ${highlightId} to highlight ${actualHighlightId}`);
+          }
+        }
+
+        // Now look for the highlight in the doc.highlights array (which has offsets)
+        const baseDoc = state.baseDocument as any;
+        if (baseDoc && baseDoc.highlights) {
+          const highlightData = baseDoc.highlights.find((h: any) => h.id === actualHighlightId);
+          if (highlightData) {
+            commentPage = highlightData.page || commentPage;
+            selectedText = highlightData.text || '';
+            startOffset = highlightData.startOffset || 0;
+            endOffset = highlightData.endOffset || 0;
+            console.log(`Found highlight data: page=${commentPage}, offsets=${startOffset}-${endOffset}`);
+          } else {
+            console.warn(`Highlight ${actualHighlightId} not found in baseDocument.highlights`);
+          }
+        }
+
+        // If we still don't have offsets, try to find the highlight in the DOM as a fallback
+        if (startOffset === 0 && endOffset === 0) {
+          const domHighlight = document.querySelector(`[data-highlight-id="${actualHighlightId}"]`);
+
+          if (domHighlight) {
+            // Get the actual position from the DOM element
+            const pageElement = domHighlight.closest('[data-page-number]');
+          if (pageElement) {
+            commentPage = parseInt(pageElement.getAttribute('data-page-number') || '1');
+            selectedText = domHighlight.textContent || '';
+
+            // Calculate actual text offsets within the page
+            const paragraphs = pageElement.querySelectorAll('p');
+            let accumulatedOffset = 0;
+            let found = false;
+
+            for (const paragraph of paragraphs) {
+              if (paragraph.contains(domHighlight)) {
+                // Found the paragraph containing our highlight
+                // Calculate offset within this paragraph
+                const walker = document.createTreeWalker(
+                  paragraph,
+                  NodeFilter.SHOW_TEXT,
+                  null
+                );
+
+                let currentOffset = 0;
+                let node;
+                while ((node = walker.nextNode())) {
+                  if (node.parentElement === domHighlight || domHighlight.contains(node)) {
+                    startOffset = accumulatedOffset + currentOffset;
+                    endOffset = startOffset + selectedText.length;
+                    found = true;
+                    break;
+                  }
+                  currentOffset += node.textContent?.length || 0;
+                }
+
+                if (found) break;
+              }
+
+              accumulatedOffset += (paragraph.textContent?.length || 0) + 2; // +2 for paragraph breaks
+            }
+
+            if (!found) {
+              console.warn(`Could not calculate offsets for highlight ${highlightId}, using fallback`);
+              // Fallback: estimate based on DOM position
+              const pageRect = pageElement.getBoundingClientRect();
+              const highlightRect = domHighlight.getBoundingClientRect();
+              const relativeTop = highlightRect.top - pageRect.top;
+              const lineHeight = 24;
+              const charsPerLine = 80;
+              const estimatedLine = Math.floor(relativeTop / lineHeight);
+              startOffset = estimatedLine * charsPerLine;
+              endOffset = startOffset + selectedText.length;
+            }
+          }
+          } else {
+            console.warn(`Highlight ${actualHighlightId} DOM element not found, could not calculate offsets from DOM`);
+          }
         }
       }
 
-      // Add the comment
-      get().addComment({
+      // Ensure all values are proper types
+      const commentData = {
         id: `comment-${Date.now()}`,
-        type: 'Feedback',
+        type: 'Feedback' as const,
         content: text.trim(),
-        page: commentPage,
-        position,
+        page: Number(commentPage),
+        position: Number(position),
         text: selectedText,
-        startOffset,
-        endOffset,
-        source: 'chat',
-      });
+        startOffset: Number(startOffset),
+        endOffset: Number(endOffset),
+        source: 'chat' as const,
+      };
 
-      console.log(`✅ Inline comment added successfully on page ${commentPage}`);
+      console.log('Adding comment with data:', commentData);
+
+      // Add the comment
+      get().addComment(commentData);
+
+      console.log(`✅ Inline comment added successfully on page ${commentData.page}`);
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -2216,6 +2298,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
       get().updateSummaryComment(newSummary);
 
+      // Navigate to Feedback tab with Summary subtab
+      set((state) => ({
+        tabState: {
+          ...state.tabState,
+          primaryTab: 'Feedback',
+          secondaryTab: 'Summary'
+        }
+      }));
+
       console.log(`✅ Summary comment ${currentSummary ? 'updated' : 'added'} successfully`);
     } catch (error) {
       console.error('Error adding summary comment:', error);
@@ -2227,6 +2318,8 @@ export const useStore = create<StoreState>((set, get) => ({
     try {
       const { matchCardId, matchIndex = 0 } = payload;
 
+      console.log('🎯 handleHighlightTextAction called:', { matchCardId, matchIndex });
+
       if (!matchCardId) {
         console.error('Cannot highlight text: matchCardId is required');
         throw new Error('Match card ID is required');
@@ -2234,12 +2327,17 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const state = get();
 
+      console.log('📦 Available match cards:', state.matchCards.map(mc => ({ id: mc.id, matchCount: mc.matches?.length })));
+
       // Find the match card
       const matchCard = state.matchCards.find(mc => mc.id === matchCardId);
       if (!matchCard) {
         console.error(`Match card not found: ${matchCardId}`);
+        console.error('Available IDs:', state.matchCards.map(mc => mc.id));
         throw new Error(`Match card ${matchCardId} not found`);
       }
+
+      console.log('✅ Found match card:', { id: matchCard.id, matches: matchCard.matches });
 
       // Validate match index
       if (matchIndex < 0 || matchIndex >= matchCard.matches.length) {
@@ -2296,6 +2394,12 @@ export const useStore = create<StoreState>((set, get) => ({
       if (!matchCard) {
         console.error(`Match card not found: ${matchCardId}`);
         throw new Error(`Match card ${matchCardId} not found`);
+      }
+
+      // Switch to Similarity tab if not already on it
+      if (state.tabState.primaryTab !== 'Similarity') {
+        get().setTabState({ primaryTab: 'Similarity', secondaryTab: 'Match Groups' });
+        console.log('✅ Switched to Similarity tab');
       }
 
       // Navigate to first match of this source and scroll to match card

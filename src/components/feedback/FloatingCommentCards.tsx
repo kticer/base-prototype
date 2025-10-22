@@ -26,25 +26,41 @@ export function FloatingCommentCards() {
   useEffect(() => {
     const calculatePositions = () => {
       const positions: CommentPosition[] = [];
-      
+
+      // Get the document content container instead of the FloatingCommentCards container
+      const documentContent = document.querySelector('.max-w-\\[872px\\].w-full.relative') as HTMLElement;
+
       relevantComments.forEach((comment) => {
         // First try to find the existing DOM highlight element
         const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
         let top = 0;
-        
-        if (highlightElement && containerRef.current) {
-          // Use existing DOM element if available
-          const highlightRect = highlightElement.getBoundingClientRect();
-          const containerRect = containerRef.current.getBoundingClientRect();
-          top = Math.round(highlightRect.top - containerRect.top);
+
+        if (highlightElement && documentContent) {
+          // Use offsetTop for scroll-independent positioning
+          // Calculate the position of the highlight relative to the document content container
+          let element = highlightElement as HTMLElement;
+          let offsetTop = 0;
+
+          // Walk up the DOM tree to calculate total offset relative to documentContent
+          while (element && element !== documentContent) {
+            offsetTop += element.offsetTop;
+            element = element.offsetParent as HTMLElement;
+          }
+
+          top = Math.round(offsetTop);
+          console.log(`💬 FloatingCommentCards positioning ${comment.id}:`, {
+            calculatedTop: top,
+            commentOffsets: `${comment.startOffset}-${comment.endOffset}`
+          });
         } else {
+          console.log(`💬 FloatingCommentCards: highlight not found for ${comment.id}, using fallback calculation`);
           // Fallback: calculate position based on text offset and page
           // Find the page element for this comment
           const pageElement = document.querySelector(`[data-page-number="${comment.page}"]`);
-          
-          if (pageElement && containerRef.current) {
+
+          if (pageElement && documentContent) {
             const pageRect = pageElement.getBoundingClientRect();
-            const containerRect = containerRef.current.getBoundingClientRect();
+            const contentRect = documentContent.getBoundingClientRect();
             
             // Try to find specific paragraphs within the page to get more accurate positioning
             const paragraphs = pageElement.querySelectorAll('p');
@@ -69,22 +85,22 @@ export function FloatingCommentCards() {
             if (targetParagraph) {
               // Use the paragraph's position as a more accurate base
               const paragraphRect = targetParagraph.getBoundingClientRect();
-              const paragraphTopInContainer = paragraphRect.top - containerRect.top;
-              
+              const paragraphTopInContent = paragraphRect.top - contentRect.top;
+
               // Add a small offset based on position within the paragraph
               const lineHeight = 20; // More conservative line height
               const charsPerLine = 100; // More characters per line for modern displays
               const lineOffset = Math.floor(offsetInParagraph / charsPerLine) * lineHeight;
-              
-              top = Math.round(paragraphTopInContainer + lineOffset);
+
+              top = Math.round(paragraphTopInContent + lineOffset);
             } else {
               // Final fallback: use page-level estimation
-              const pageTopInContainer = pageRect.top - containerRect.top;
+              const pageTopInContent = pageRect.top - contentRect.top;
               const lineHeight = 24;
               const charsPerLine = 80;
               const estimatedLine = Math.floor(comment.startOffset / charsPerLine);
-              
-              top = Math.round(pageTopInContainer + (estimatedLine * lineHeight));
+
+              top = Math.round(pageTopInContent + (estimatedLine * lineHeight));
             }
           }
         }
@@ -120,7 +136,8 @@ export function FloatingCommentCards() {
 
     if (relevantComments.length > 0) {
       // Debounce to prevent constant re-calculations
-      const timeoutId = setTimeout(calculatePositions, 100);
+      // Increased timeout to ensure DOM highlights are fully rendered
+      const timeoutId = setTimeout(calculatePositions, 250);
       return () => clearTimeout(timeoutId);
     } else {
       setCommentPositions([]);
@@ -134,21 +151,27 @@ export function FloatingCommentCards() {
     const resizeObserver = new ResizeObserver(() => {
       // Recalculate positions when card heights change
       const positions: CommentPosition[] = [];
+      const documentContent = document.querySelector('.max-w-\\[872px\\].w-full.relative') as HTMLElement;
 
       relevantComments.forEach((comment) => {
         const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
         let top = 0;
 
-        if (highlightElement && containerRef.current) {
-          const highlightRect = highlightElement.getBoundingClientRect();
-          const containerRect = containerRef.current.getBoundingClientRect();
-          top = Math.round(highlightRect.top - containerRect.top);
+        if (highlightElement && documentContent) {
+          // Use offsetTop for scroll-independent positioning
+          let element = highlightElement as HTMLElement;
+          let offsetTop = 0;
+          while (element && element !== documentContent) {
+            offsetTop += element.offsetTop;
+            element = element.offsetParent as HTMLElement;
+          }
+          top = Math.round(offsetTop);
         } else {
           const pageElement = document.querySelector(`[data-page-number="${comment.page}"]`);
 
-          if (pageElement && containerRef.current) {
+          if (pageElement && documentContent) {
             const pageRect = pageElement.getBoundingClientRect();
-            const containerRect = containerRef.current.getBoundingClientRect();
+            const contentRect = documentContent.getBoundingClientRect();
             const paragraphs = pageElement.querySelectorAll('p');
             let accumulatedOffset = 0;
             let targetParagraph = null;
@@ -169,19 +192,19 @@ export function FloatingCommentCards() {
 
             if (targetParagraph) {
               const paragraphRect = targetParagraph.getBoundingClientRect();
-              const paragraphTopInContainer = paragraphRect.top - containerRect.top;
+              const paragraphTopInContent = paragraphRect.top - contentRect.top;
               const lineHeight = 20;
               const charsPerLine = 100;
               const lineOffset = Math.floor(offsetInParagraph / charsPerLine) * lineHeight;
 
-              top = Math.round(paragraphTopInContainer + lineOffset);
+              top = Math.round(paragraphTopInContent + lineOffset);
             } else {
-              const pageTopInContainer = pageRect.top - containerRect.top;
+              const pageTopInContent = pageRect.top - contentRect.top;
               const lineHeight = 24;
               const charsPerLine = 80;
               const estimatedLine = Math.floor(comment.startOffset / charsPerLine);
 
-              top = Math.round(pageTopInContainer + (estimatedLine * lineHeight));
+              top = Math.round(pageTopInContent + (estimatedLine * lineHeight));
             }
           }
         }
@@ -221,34 +244,113 @@ export function FloatingCommentCards() {
     };
   }, [relevantComments]);
 
+  // Watch for new comment highlights being added to the DOM
+  useEffect(() => {
+    if (relevantComments.length === 0) return;
+
+    const observer = new MutationObserver((mutations) => {
+      // Check if any new comment highlights were added
+      const hasNewCommentHighlight = mutations.some((mutation) =>
+        Array.from(mutation.addedNodes).some(
+          (node) =>
+            node instanceof HTMLElement &&
+            node.getAttribute('data-comment-id') !== null
+        )
+      );
+
+      if (hasNewCommentHighlight) {
+        // Recalculate positions when new highlights are added
+        const positions: CommentPosition[] = [];
+        const documentContent = document.querySelector('.max-w-\\[872px\\].w-full.relative') as HTMLElement;
+
+        relevantComments.forEach((comment) => {
+          const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
+          let top = 0;
+
+          if (highlightElement && documentContent) {
+            // Use offsetTop for scroll-independent positioning
+            let element = highlightElement as HTMLElement;
+            let offsetTop = 0;
+            while (element && element !== documentContent) {
+              offsetTop += element.offsetTop;
+              element = element.offsetParent as HTMLElement;
+            }
+            top = Math.round(offsetTop);
+          }
+
+          if (top >= 0) {
+            const cardElement = cardRefs.current.get(comment.id);
+            const actualHeight = cardElement ? cardElement.offsetHeight : 120;
+
+            positions.push({
+              id: comment.id,
+              top: top,
+              height: actualHeight,
+            });
+          }
+        });
+
+        // Sort and resolve collisions
+        positions.sort((a, b) => a.top - b.top);
+        for (let i = 1; i < positions.length; i++) {
+          const prev = positions[i - 1];
+          const current = positions[i];
+          if (current.top < prev.top + prev.height + 12) {
+            current.top = prev.top + prev.height + 12;
+          }
+        }
+
+        setCommentPositions(positions);
+      }
+    });
+
+    // Observe the document content area for new comment highlights
+    const documentContent = document.querySelector('.max-w-\\[872px\\].w-full.relative');
+    if (documentContent) {
+      observer.observe(documentContent, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [relevantComments]);
+
   // Add scroll listener with debounce for position updates
   useEffect(() => {
     let scrollTimeout: NodeJS.Timeout;
-    
+
     const handleScroll = () => {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         // Only recalculate if we have comments and positions
         if (relevantComments.length > 0 && commentPositions.length > 0) {
           const positions: CommentPosition[] = [];
-          
+          const documentContent = document.querySelector('.max-w-\\[872px\\].w-full.relative') as HTMLElement;
+
           relevantComments.forEach((comment) => {
             // First try to find the existing DOM highlight element
             const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
             let top = 0;
-            
-            if (highlightElement && containerRef.current) {
-              // Use existing DOM element if available
-              const highlightRect = highlightElement.getBoundingClientRect();
-              const containerRect = containerRef.current.getBoundingClientRect();
-              top = Math.round(highlightRect.top - containerRect.top);
+
+            if (highlightElement && documentContent) {
+              // Use offsetTop for scroll-independent positioning
+              let element = highlightElement as HTMLElement;
+              let offsetTop = 0;
+              while (element && element !== documentContent) {
+                offsetTop += element.offsetTop;
+                element = element.offsetParent as HTMLElement;
+              }
+              top = Math.round(offsetTop);
             } else {
               // Fallback: calculate position based on text offset and page
               const pageElement = document.querySelector(`[data-page-number="${comment.page}"]`);
-              
-              if (pageElement && containerRef.current) {
+
+              if (pageElement && documentContent) {
                 const pageRect = pageElement.getBoundingClientRect();
-                const containerRect = containerRef.current.getBoundingClientRect();
+                const contentRect = documentContent.getBoundingClientRect();
                 
                 // Try to find specific paragraphs within the page
                 const paragraphs = pageElement.querySelectorAll('p');
@@ -271,19 +373,19 @@ export function FloatingCommentCards() {
                 
                 if (targetParagraph) {
                   const paragraphRect = targetParagraph.getBoundingClientRect();
-                  const paragraphTopInContainer = paragraphRect.top - containerRect.top;
+                  const paragraphTopInContent = paragraphRect.top - contentRect.top;
                   const lineHeight = 20;
                   const charsPerLine = 100;
                   const lineOffset = Math.floor(offsetInParagraph / charsPerLine) * lineHeight;
-                  
-                  top = Math.round(paragraphTopInContainer + lineOffset);
+
+                  top = Math.round(paragraphTopInContent + lineOffset);
                 } else {
-                  const pageTopInContainer = pageRect.top - containerRect.top;
+                  const pageTopInContent = pageRect.top - contentRect.top;
                   const lineHeight = 24;
                   const charsPerLine = 80;
                   const estimatedLine = Math.floor(comment.startOffset / charsPerLine);
-                  
-                  top = Math.round(pageTopInContainer + (estimatedLine * lineHeight));
+
+                  top = Math.round(pageTopInContent + (estimatedLine * lineHeight));
                 }
               }
             }

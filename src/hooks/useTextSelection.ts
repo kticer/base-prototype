@@ -383,18 +383,27 @@ export function useTextSelection() {
   const restoreCommentHighlights = useCallback(() => {
     // Wait for DOM to be ready
     const timeoutId = setTimeout(() => {
+      console.log(`🔄 restoreCommentHighlights running for ${comments.length} comments`);
       comments.forEach((comment) => {
         // Check if highlight already exists
         const existingHighlight = document.querySelector(
-          `[data-comment-id='${'comment.id'}']`,
+          `[data-comment-id='${comment.id}']`,
         );
-        if (existingHighlight) return;
+        if (existingHighlight) {
+          console.log(`✓ Comment ${comment.id} already has highlight (offsets: ${comment.startOffset}-${comment.endOffset})`);
+          return;
+        }
+
+        console.log(`📍 Creating highlight for comment ${comment.id} (page ${comment.page}, offsets ${comment.startOffset}-${comment.endOffset})`);
 
         // Find the page element
         const pageElement = document.querySelector(
-          `[data-page-number='${'comment.page'}']`,
+          `[data-page-number='${comment.page}']`,
         );
-        if (!pageElement) return;
+        if (!pageElement) {
+          console.warn(`❌ Page element not found for comment ${comment.id}`);
+          return;
+        }
 
         try {
           // Get all paragraphs in the page
@@ -419,7 +428,17 @@ export function useTextSelection() {
             accumulatedOffset += paragraphText.length + 2; // +2 for paragraph breaks
           }
 
-          if (!targetParagraph) return;
+          if (!targetParagraph) {
+            console.warn(`❌ Target paragraph not found for comment ${comment.id}`);
+            return;
+          }
+
+          console.log(`✓ Found target paragraph for comment ${comment.id}:`, {
+            accumulatedOffset,
+            startOffsetInParagraph,
+            endOffsetInParagraph,
+            paragraphPreview: (targetParagraph.textContent || '').substring(0, 100)
+          });
 
           // Create a text range within the paragraph
           const range = document.createRange();
@@ -456,7 +475,12 @@ export function useTextSelection() {
             currentOffset += nodeLength;
           }
 
-          if (!startNode || !endNode) return;
+          if (!startNode || !endNode) {
+            console.warn(`❌ Could not find text nodes for comment ${comment.id}`);
+            return;
+          }
+
+          console.log(`✓ Found text nodes for comment ${comment.id}, creating range`);
 
           // Create the range
           range.setStart(startNode, Math.max(0, startNodeOffset));
@@ -489,15 +513,37 @@ export function useTextSelection() {
           // Insert the highlight
           try {
             range.surroundContents(span);
+            console.log(`✅ Successfully created highlight span for comment ${comment.id}`);
           } catch {
             // Fallback for complex selections
             const contents = range.extractContents();
             span.appendChild(contents);
             range.insertNode(span);
+            console.log(`✅ Successfully created highlight span for comment ${comment.id} (fallback method)`);
           }
+
+          // Verify it's in the DOM and check its position
+          setTimeout(() => {
+            const verify = document.querySelector(`[data-comment-id='${comment.id}']`);
+            if (verify) {
+              const rect = verify.getBoundingClientRect();
+              const docContent = document.querySelector('.max-w-\\[872px\\].w-full.relative');
+              const contentRect = docContent?.getBoundingClientRect();
+              const relativeTop = contentRect ? rect.top - contentRect.top : 'N/A';
+              console.log(`🔍 Span positioned at:`, {
+                commentId: comment.id,
+                pageY: Math.round(rect.top),
+                relativeToContent: Math.round(relativeTop as number),
+                expectedOffsets: `${comment.startOffset}-${comment.endOffset}`,
+                spanText: (verify.textContent || '').substring(0, 50)
+              });
+            } else {
+              console.warn(`🔍 Verification failed: span not found for comment ${comment.id}`);
+            }
+          }, 100);
         } catch (error) {
           console.warn(
-            `Could not restore highlight for comment ${'comment.id'}:`,
+            `❌ Could not restore highlight for comment ${comment.id}:`,
             error,
           );
         }
@@ -511,7 +557,7 @@ export function useTextSelection() {
   useEffect(() => {
     const cleanup = restoreCommentHighlights();
     return cleanup;
-  }, []);
+  }, [restoreCommentHighlights]);
 
   /**
    * Creates a strikethrough annotation from the current text selection
