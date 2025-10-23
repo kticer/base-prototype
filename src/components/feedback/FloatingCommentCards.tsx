@@ -32,7 +32,7 @@ export function FloatingCommentCards() {
 
       relevantComments.forEach((comment) => {
         // First try to find the existing DOM highlight element
-        const highlightElement = document.querySelector(`[data-comment-id="${comment.id}"]`);
+        const highlightElement = document.querySelector(`span[data-comment-id="${comment.id}"]`);
         let top = 0;
 
         if (highlightElement && documentContent) {
@@ -41,8 +41,16 @@ export function FloatingCommentCards() {
           let element = highlightElement as HTMLElement;
           let offsetTop = 0;
 
+          console.log(`💬 Starting position calc for ${comment.id}:`, {
+            highlightTag: highlightElement.tagName,
+            highlightOffsetTop: highlightElement.offsetTop,
+            highlightOffsetParent: highlightElement.offsetParent?.nodeName,
+            documentContentTag: documentContent.tagName
+          });
+
           // Walk up the DOM tree to calculate total offset relative to documentContent
           while (element && element !== documentContent) {
+            console.log(`  Adding ${element.offsetTop}px from ${element.tagName}, total: ${offsetTop + element.offsetTop}`);
             offsetTop += element.offsetTop;
             element = element.offsetParent as HTMLElement;
           }

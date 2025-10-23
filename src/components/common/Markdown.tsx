@@ -164,8 +164,10 @@ function Block({ block, matchCards, onCitationClick }: { block: TextBlock; match
         return (
           <ol className="list-decimal pl-5 space-y-2">
             {block.items.map((it, i) => {
+              // Ensure item is a string (not an object)
+              const itemText = typeof it === 'string' ? it : JSON.stringify(it);
               // Clean up orphaned ** markers
-              const cleanedText = it.replace(/^\*\*\s*$/, '').trim();
+              const cleanedText = itemText.replace(/^\*\*\s*$/, '').trim();
               if (!cleanedText) return null;
               return <li key={i}><Inline text={cleanedText} matchCards={matchCards} onCitationClick={onCitationClick} /></li>;
             })}
@@ -175,8 +177,10 @@ function Block({ block, matchCards, onCitationClick }: { block: TextBlock; match
       return (
         <ul className="list-disc pl-5 space-y-2">
           {block.items.map((it, i) => {
+            // Ensure item is a string (not an object)
+            const itemText = typeof it === 'string' ? it : JSON.stringify(it);
             // Clean up orphaned ** markers
-            const cleanedText = it.replace(/^\*\*\s*$/, '').trim();
+            const cleanedText = itemText.replace(/^\*\*\s*$/, '').trim();
             if (!cleanedText) return null;
             return <li key={i}><Inline text={cleanedText} matchCards={matchCards} onCitationClick={onCitationClick} /></li>;
           })}

@@ -14,7 +14,6 @@ export function GradingProgressTracker() {
   const total = analytics.totalSubmissions;
 
   let graded = 0;
-  let needsReview = 0;
   let ungraded = 0;
 
   if (courseSubmissions && courseSubmissions.length > 0) {
@@ -26,18 +25,15 @@ export function GradingProgressTracker() {
     gradedIds.delete('doc-the-2018-golden-globes-jam-1751316856155-1');
     graded = gradedIds.size;
     ungraded = firstEight.length - graded;
-    // Needs review approximated from intervention flags
-    needsReview = patterns.filter(p => p.needsIntervention).length;
   } else {
     // Fallback approximation when submissions aren't loaded
     graded = patterns.filter(p => p.integrityIssuesCount === 0).length;
-    needsReview = patterns.filter(p => p.needsIntervention).length;
     ungraded = total - graded;
   }
 
-  const gradedPercent = (graded / total) * 100;
-  const needsReviewPercent = (needsReview / total) * 100;
-  const ungradedPercent = (ungraded / total) * 100;
+  const gradedPercent = total > 0 ? (graded / total) * 100 : 0;
+  // Ensure the two-part bar sums to 100%
+  const ungradedPercent = Math.max(0, 100 - gradedPercent);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -60,12 +56,6 @@ export function GradingProgressTracker() {
             {gradedPercent > 10 && `${gradedPercent.toFixed(0)}%`}
           </div>
           <div
-            className="bg-yellow-500 h-full flex items-center justify-center text-xs font-medium text-white"
-            style={{ width: `${needsReviewPercent}%` }}
-          >
-            {needsReviewPercent > 10 && `${needsReviewPercent.toFixed(0)}%`}
-          </div>
-          <div
             className="bg-gray-300 h-full flex items-center justify-center text-xs font-medium text-gray-700"
             style={{ width: `${ungradedPercent}%` }}
           >
@@ -77,10 +67,6 @@ export function GradingProgressTracker() {
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-green-500 rounded"></div>
               <span>Graded ({graded})</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-              <span>Needs Review ({needsReview})</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-gray-300 rounded"></div>
@@ -101,7 +87,6 @@ export function GradingProgressTracker() {
             </svg>
             <div className="text-sm text-amber-800">
               <span className="font-medium">Action needed:</span> {ungraded} submissions still need grading.
-              {needsReview > 0 && ` ${needsReview} require integrity review before grading.`}
             </div>
           </div>
         </div>

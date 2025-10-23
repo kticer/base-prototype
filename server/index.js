@@ -147,6 +147,7 @@ app.post('/api/chat', async (req, res) => {
       'Never suggest actions for the student or assume the user wrote the paper being reviewed.',
       'Focus on helping the instructor assess academic integrity, provide feedback, and grade submissions.',
       'Be concise, helpful, and actionable in your responses.',
+      'CRITICAL: Do not expose internal technical data in responses. Never mention: highlightId, matchCardId, startOffset, endOffset, or other backend field names. Only reference user-facing information like source names, similarity percentages, page numbers, and text content.',
     ];
 
     const screenInstructions = {
@@ -157,6 +158,7 @@ app.post('/api/chat', async (req, res) => {
         'Include action buttons: [ACTION:draft_comment|Label], [ACTION:add_comment|Label|text|highlightId|page], [ACTION:show_source|Label|matchCardId].',
         'When adding comments about specific text, include the highlightId from visibleHighlights and page number for proper positioning.',
         'Use SourceNameToIdMap to get correct source IDs. Explain scores plainly, identify largest source, note integrity concerns.',
+        'IMPORTANT: When discussing AI writing or AI detection, you will be automatically navigated to the AI Writing tab. Acknowledge that AI detection tools are available in that tab.',
       ],
       'inbox': [
         'Help instructors manage their student submissions inbox.',
@@ -178,13 +180,28 @@ app.post('/api/chat', async (req, res) => {
     };
 
     const artifactInstructions = [
-      'When creating structured documents, emit a single JSON artifact inside a ```json code block only when structure is explicitly helpful.',
+      'When creating structured documents, emit a single JSON artifact inside a ```json code block ONLY.',
       'Never generate a RUBRIC unless the user explicitly asks for a rubric or grading criteria.',
-      'RUBRIC: type:"rubric", layout:"grid"|"linear", criteria with name/description/points/levels.',
-      'FEEDBACK PLAN: type:"feedback-plan", title, sections:[{heading, content}].',
-      'REPORT: type:"report", title, sections:[{heading, content, items?}]. Prefer REPORT for summaries/analyses.',
-      'TABLE: type:"table", title, headers:[...], rows:[...]. Use for lists in Inbox/Insights.',
+      'RUBRIC: {"type": "rubric", "layout": "grid"|"linear", "criteria": [...]}.  with name/description/points/levels.',
+      'FEEDBACK PLAN: {"type": "feedback-plan", "title": "...", "sections": [{"heading": "...", "content": "..."}]}.',
+      'REPORT: {"type": "report", "title": "...", "sections": [{"heading": "...", "content": "...", "items": [...]}]}. Prefer REPORT for summaries/analyses.',
+      'TABLE: {"type": "table", "title": "...", "headers": [...], "rows": [[...]]}. Use for lists in Inbox/Insights.',
+      'CRITICAL: All artifact JSON must be wrapped in ```json code fence and use proper JSON syntax with double quotes around ALL keys and string values.',
+      'Example table artifact: ```json\\n{"type": "table", "title": "Student List", "headers": ["Name", "Score"], "rows": [["Alice", "95"], ["Bob", "87"]]}\\n```',
+      'NEVER output artifacts as plain text like type:"table" - this is WRONG. Always use ```json code blocks.',
       'Choose the type based on the request; when ambiguous, prefer a concise, well-formatted Markdown answer over forcing an artifact.',
+    ];
+
+    // actionInstructions defined once above for this handler
+
+    const actionInstructions = [
+      'Quick actions must be returned as a JSON code block after your answer. Do not use inline [ACTION:...] markup.',
+      'Use this exact format: ```json { "actions": [{ "type": "show_source"|"add_comment"|"draft_comment"|"add_summary_comment"|"highlight_text"|"navigate"|"next_issue"|"prev_issue"|"retry", "label": "Imperative label", "payload": { ... } }] } ```',
+      'Labels must clearly communicate what happens (e.g., "Show source: IndieWire (28%)", "Add comment about paraphrasing").',
+      'Payload rules: for show_source include {"matchCardId": "mcX"}. For highlight_text include {"matchCardId": "mcX"}. Prefer exact IDs from SourceNameToIdMap; you may also include {"sourceName": "..."}. For add_comment include {"text": "...", "highlightId"?, "page"?}.',
+      'IMPORTANT: When user asks to "show" or "see" the largest/biggest match, respond with the text information, then provide highlight_text actions for the 2nd and 3rd LARGEST matches (NOT the first one - it will be auto-shown). Sort matches by similarityPercent descending, then offer buttons for matches ranked #2 and #3.',
+      'Only include actions when they add value. Keep lists short (3–6).',
+      'Example when showing largest match: ```json { "actions": [ { "type": "highlight_text", "label": "View 2nd largest: IndieWire (18%)", "payload": { "matchCardId": "mc2" } }, { "type": "highlight_text", "label": "View 3rd largest: Serious Eats (15%)", "payload": { "matchCardId": "mc3" } } ] } ```',
     ];
 
     // Join with space - Gemini systemInstruction must be a simple text string
@@ -192,6 +209,7 @@ app.post('/api/chat', async (req, res) => {
       ...baseInstructions,
       ...(screenInstructions[screenType] || screenInstructions['document-viewer']),
       ...artifactInstructions,
+      ...actionInstructions,
     ].join(' ');
 
     const light = lighten(context);
@@ -248,7 +266,11 @@ app.post('/api/chat', async (req, res) => {
     // Prepend context to the user's prompt
     const promptWithContext = ctxText ? `${ctxText}\n\nUser Query: ${prompt}` : prompt;
     const result = await chat.sendMessage(promptWithContext);
-    const text = result?.response?.text?.() ?? '';
+    const rawText = result?.response?.text?.() ?? '';
+
+    // Sanitize the response to remove old action formats
+    const text = sanitizeGeminiResponse(rawText, req.id);
+
     log.info('chat:success', { id: req.id, textLen: text.length });
     return res.json({ text });
   } catch (e) {
@@ -296,6 +318,7 @@ app.post('/api/chat/stream', async (req, res) => {
       'Never suggest actions for the student or assume the user wrote the paper being reviewed.',
       'Focus on helping the instructor assess academic integrity, provide feedback, and grade submissions.',
       'Be concise, helpful, and actionable in your responses.',
+      'CRITICAL: Do not expose internal technical data in responses. Never mention: highlightId, matchCardId, startOffset, endOffset, or other backend field names. Only reference user-facing information like source names, similarity percentages, page numbers, and text content.',
     ];
 
     const screenInstructions = {
@@ -306,6 +329,7 @@ app.post('/api/chat/stream', async (req, res) => {
         'Include action buttons: [ACTION:draft_comment|Label], [ACTION:add_comment|Label|text|highlightId|page], [ACTION:show_source|Label|matchCardId].',
         'When adding comments about specific text, include the highlightId from visibleHighlights and page number for proper positioning.',
         'Use SourceNameToIdMap to get correct source IDs. Explain scores plainly, identify largest source, note integrity concerns.',
+        'IMPORTANT: When discussing AI writing or AI detection, you will be automatically navigated to the AI Writing tab. Acknowledge that AI detection tools are available in that tab.',
       ],
       'inbox': [
         'Help instructors manage their student submissions inbox.',
@@ -323,13 +347,26 @@ app.post('/api/chat/stream', async (req, res) => {
     };
 
     const artifactInstructions = [
-      'When creating structured documents, emit a single JSON artifact inside a ```json code block only when structure is explicitly helpful.',
+      'When creating structured documents, emit a single JSON artifact inside a ```json code block ONLY.',
       'Never generate a RUBRIC unless the user explicitly asks for a rubric or grading criteria.',
-      'RUBRIC: type:"rubric", layout:"grid"|"linear", criteria with name/description/points/levels.',
-      'FEEDBACK PLAN: type:"feedback-plan", title, sections:[{heading, content}].',
-      'REPORT: type:"report", title, sections:[{heading, content, items?}]. Prefer REPORT for summaries/analyses.',
-      'TABLE: type:"table", title, headers:[...], rows:[...]. Use for lists in Inbox/Insights.',
+      'RUBRIC: {"type": "rubric", "layout": "grid"|"linear", "criteria": [...]}.  with name/description/points/levels.',
+      'FEEDBACK PLAN: {"type": "feedback-plan", "title": "...", "sections": [{"heading": "...", "content": "..."}]}.',
+      'REPORT: {"type": "report", "title": "...", "sections": [{"heading": "...", "content": "...", "items": [...]}]}. Prefer REPORT for summaries/analyses.',
+      'TABLE: {"type": "table", "title": "...", "headers": [...], "rows": [[...]]}. Use for lists in Inbox/Insights.',
+      'CRITICAL: All artifact JSON must be wrapped in ```json code fence and use proper JSON syntax with double quotes around ALL keys and string values.',
+      'Example table artifact: ```json\\n{"type": "table", "title": "Student List", "headers": ["Name", "Score"], "rows": [["Alice", "95"], ["Bob", "87"]]}\\n```',
+      'NEVER output artifacts as plain text like type:"table" - this is WRONG. Always use ```json code blocks.',
       'Choose the type based on the request; when ambiguous, prefer a concise, well-formatted Markdown answer over forcing an artifact.',
+    ];
+
+    const actionInstructions = [
+      'Quick actions must be returned as a JSON code block after your answer. Do not use inline [ACTION:...] markup.',
+      'Use this exact format: ```json { "actions": [{ "type": "show_source"|"add_comment"|"draft_comment"|"add_summary_comment"|"highlight_text"|"navigate"|"next_issue"|"prev_issue"|"retry", "label": "Imperative label", "payload": { ... } }] } ```',
+      'Labels must clearly communicate what happens (e.g., "Show source: IndieWire (28%)", "Add comment about paraphrasing").',
+      'Payload rules: for show_source include {"matchCardId": "mcX"}. For highlight_text include {"matchCardId": "mcX"}. Prefer exact IDs from SourceNameToIdMap; you may also include {"sourceName": "..."}. For add_comment include {"text": "...", "highlightId"?, "page"?}.',
+      'IMPORTANT: When user asks to "show" or "see" the largest/biggest match, respond with the text information, then provide highlight_text actions for the 2nd and 3rd LARGEST matches (NOT the first one - it will be auto-shown). Sort matches by similarityPercent descending, then offer buttons for matches ranked #2 and #3.',
+      'Only include actions when they add value. Keep lists short (3–6).',
+      'Example when showing largest match: ```json { "actions": [ { "type": "highlight_text", "label": "View 2nd largest: IndieWire (18%)", "payload": { "matchCardId": "mc2" } }, { "type": "highlight_text", "label": "View 3rd largest: Serious Eats (15%)", "payload": { "matchCardId": "mc3" } } ] } ```',
     ];
 
     // Join with space - Gemini systemInstruction must be a simple text string
@@ -337,6 +374,7 @@ app.post('/api/chat/stream', async (req, res) => {
       ...baseInstructions,
       ...(screenInstructions[screenType] || screenInstructions['document-viewer']),
       ...artifactInstructions,
+      ...actionInstructions,
     ].join(' ');
 
     const light = lighten(context);
@@ -395,10 +433,17 @@ app.post('/api/chat/stream', async (req, res) => {
       });
 
       const result = await chat.sendMessageStream(promptWithContext);
+      let fullText = '';
       for await (const chunk of result.stream) {
         const t = chunk.text();
-        if (t) res.write(t);
+        if (t) fullText += t;
       }
+
+      // Sanitize the complete response before sending
+      const sanitized = sanitizeGeminiResponse(fullText, req.id);
+
+      // Send the sanitized text as a single chunk (frontend handles it well)
+      res.write(sanitized);
       log.info('chat_stream:success', { id: req.id });
       res.end();
     } catch (err) {
@@ -412,7 +457,8 @@ app.post('/api/chat/stream', async (req, res) => {
         },
       });
       const nonstream = await chat.sendMessage(promptWithContext);
-      const text = nonstream?.response?.text?.() ?? '';
+      const rawText = nonstream?.response?.text?.() ?? '';
+      const text = sanitizeGeminiResponse(rawText, req.id);
       res.write(text || '\n[Chat server] No content returned from Gemini.');
       res.end();
     }
@@ -474,6 +520,57 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   log.warn('signal:SIGTERM');
 });
+
+/**
+ * Sanitize Gemini response to ensure clean action formatting
+ * Strips out old [ACTION:...] markup and ensures only JSON actions pass through
+ */
+function sanitizeGeminiResponse(text, requestId) {
+  if (!text || typeof text !== 'string') return text;
+
+  let sanitized = text;
+  let hadIssues = false;
+
+  // Check for old [ACTION:...] syntax
+  const oldActionRegex = /\[ACTION:[^\]]+\]/g;
+  const oldActionsFound = text.match(oldActionRegex);
+
+  if (oldActionsFound && oldActionsFound.length > 0) {
+    log.warn('sanitize:old_action_format', {
+      id: requestId,
+      count: oldActionsFound.length,
+      examples: oldActionsFound.slice(0, 3)
+    });
+    hadIssues = true;
+
+    // Strip out all [ACTION:...] markup from the text
+    sanitized = sanitized.replace(oldActionRegex, '').trim();
+  }
+
+  // Check if there are JSON action blocks
+  const jsonBlockRegex = /```json\s*\n([\s\S]*?)```/g;
+  const jsonBlocks = [...sanitized.matchAll(jsonBlockRegex)];
+
+  if (jsonBlocks.length > 0) {
+    log.debug('sanitize:json_actions_found', {
+      id: requestId,
+      blockCount: jsonBlocks.length
+    });
+  }
+
+  // Clean up any multiple consecutive newlines that might result from stripping
+  sanitized = sanitized.replace(/\n\n\n+/g, '\n\n').trim();
+
+  if (hadIssues) {
+    log.info('sanitize:cleaned', {
+      id: requestId,
+      originalLen: text.length,
+      sanitizedLen: sanitized.length
+    });
+  }
+
+  return sanitized;
+}
 
 function lighten(ctx) {
   if (!ctx) return {};

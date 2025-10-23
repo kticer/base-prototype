@@ -445,6 +445,23 @@ export default function DocumentViewer() {
       academicIntegrityIssue: (card as any).academicIntegrityIssue,
       issueDescription: (card as any).issueDescription,
     })),
+    // Include highlights so AI can reference them (both formats for compatibility)
+    highlights: doc.highlights?.map(h => ({
+      id: h.id,
+      matchCardId: h.matchCardId,
+      page: h.page,
+      text: h.text,
+    })),
+    settings: {
+      visibleHighlights: doc.highlights?.map(h => ({
+        id: h.id,
+        matchCardId: h.matchCardId,
+        page: h.page,
+        startOffset: h.startOffset,
+        endOffset: h.endOffset,
+        text: h.text,
+      })),
+    },
     // Add explicit source name to ID mapping for easier reference
     sourceIdMap: doc.matchCards?.reduce((map, card) => {
       map[(card as any).sourceName] = card.id;

@@ -4,7 +4,7 @@ import { useStore } from '../../store';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Markdown from '../common/Markdown';
 import { askGeminiStream } from '../../services/geminiClient';
-import { parseActionsFromResponse, ensureActionButtons, type ChatAction } from '../../utils/chatActions';
+import { parseActionsStrictJson, ensureActionButtons, type ChatAction } from '../../utils/chatActions';
 import { ChatActionButton } from './ChatActionButton';
 
 interface GlobalChatPanelProps {
@@ -48,6 +48,7 @@ export default function GlobalChatPanel({
   const [showContextHelp, setShowContextHelp] = useState(false);
   const [showFollowUps, setShowFollowUps] = useState<Record<number, boolean>>({});
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
+  const [shuffledSuggestions, setShuffledSuggestions] = useState<(string | { label: string; contextEnhancement: string; action?: string })[]>([]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -55,10 +56,57 @@ export default function GlobalChatPanel({
   const resizeStartX = useRef(0);
   const resizeStartWidth = useRef(0);
 
+  // Normalize a match card identifier coming from AI payloads
+  const normalizeMatchCardId = useCallback((raw: any): string | null => {
+    if (!raw) return null;
+    const val = String(raw).trim();
+    // Common pattern: "mc2|1" -> take left of first pipe
+    const left = val.split('|')[0].trim();
+    if (contextData?.matchCards?.some((mc: any) => mc.id === left)) return left;
+    // If payload is a source name, try sourceIdMap
+    if ((contextData as any)?.sourceIdMap && (contextData as any).sourceIdMap[left]) return (contextData as any).sourceIdMap[left];
+    // Try looser match: extract id like mc<number>
+    const maybeId = (val.match(/\bmc\d+\b/) || [])[0];
+    if (maybeId && contextData?.matchCards?.some((mc: any) => mc.id === maybeId)) return maybeId;
+    return null;
+  }, [contextData]);
+
   const currentScreen = chat.currentScreen;
   const messages = currentScreen ? chat.conversations[currentScreen].messages : [];
   const isDocumentViewer = currentScreen === 'document-viewer';
   const isOverlay = chat.displayMode === 'overlay';
+
+  // Default suggestion pool for document viewer
+  const defaultDocumentSuggestions = [
+    "Identify the thesis statement",
+    "List the primary sources cited",
+    "Explain the similarity score",
+    { label: "Analyze the paper for AI writing", action: "navigate_ai_writing" },
+    "Summarize the main arguments",
+    "Check citation formatting",
+    "Review the conclusion",
+    "Identify areas needing improvement",
+  ];
+
+  // Shuffle and combine suggestions
+  const shuffleSuggestions = useCallback(() => {
+    if (isDocumentViewer) {
+      // Combine provided suggestions with default pool
+      const allSuggestions = [...promptSuggestions, ...defaultDocumentSuggestions];
+      // Shuffle array
+      const shuffled = [...allSuggestions].sort(() => Math.random() - 0.5);
+      // Take first 3 items
+      setShuffledSuggestions(shuffled.slice(0, 3));
+    } else {
+      // For other screens, take first 3 provided suggestions
+      setShuffledSuggestions(promptSuggestions.slice(0, 3));
+    }
+  }, [promptSuggestions, isDocumentViewer]);
+
+  // Initialize suggestions on mount and when props change
+  useEffect(() => {
+    shuffleSuggestions();
+  }, [shuffleSuggestions]);
 
   // Update current screen when contextData.screen changes
   useEffect(() => {
@@ -137,14 +185,20 @@ export default function GlobalChatPanel({
     const classifyDesiredArtifact = (text: string, screen: string | null): 'rubric' | 'feedback-plan' | 'report' | 'table' | null => {
       const t = text.toLowerCase();
       const actionVerb = /(create|generate|make|build|design|draft|write|produce)/.test(t);
+      const requestVerb = /(show|give|provide|display)/.test(t);
+
       // Rubric only when explicitly asked
       if (actionVerb && /\brubric(s)?\b|grading criteria|assessment rubric/.test(t)) return 'rubric';
+
       // Feedback plan intents
       if (actionVerb && /(feedback plan|meeting plan|conference plan|talking points|intervention plan|action plan)/.test(t)) return 'feedback-plan';
-      // Report intents only when explicitly asked to create a report
-      if (actionVerb && /\breport\b/.test(t)) return 'report';
+
+      // Report intents - allow both action and request verbs
+      if ((actionVerb || requestVerb) && /\breport\b/.test(t)) return 'report';
+
       // Table intents, especially on inbox/insights
       if ((/\btable\b|\btabular\b/.test(t) || (/show|list|rank|prioritize|which|top\s+\d+/).test(t)) && (screen === 'inbox' || screen === 'insights')) return 'table';
+
       return null;
     };
 
@@ -250,6 +304,48 @@ export default function GlobalChatPanel({
         });
       }
 
+      // Auto-trigger navigation to largest match if user asked to see/show it
+      const promptLower = prompt.toLowerCase();
+      if (
+        (promptLower.includes('show') || promptLower.includes('see') || promptLower.includes('view')) &&
+        (promptLower.includes('largest') || promptLower.includes('biggest') || promptLower.includes('highest')) &&
+        (promptLower.includes('match') || promptLower.includes('highlight'))
+      ) {
+        // Find the largest match and auto-navigate to it
+        const topMatches = contextData?.matchCards
+          ?.slice()
+          .sort((a: any, b: any) => b.similarityPercent - a.similarityPercent);
+
+        if (topMatches && topMatches.length > 0) {
+          const largestMatch = topMatches[0];
+          // Auto-trigger highlight of the largest match
+          setTimeout(() => {
+            handleHighlightTextAction({ matchCardId: largestMatch.id });
+          }, 500);
+        }
+      }
+
+      // Auto-navigate to AI Writing tab if user asks about AI writing
+      if (
+        currentScreen === 'document-viewer' &&
+        (promptLower.includes('ai writing') ||
+         promptLower.includes('ai-writing') ||
+         promptLower.includes('ai generated') ||
+         promptLower.includes('ai-generated') ||
+         promptLower.includes('detect ai') ||
+         promptLower.includes('ai detection'))
+      ) {
+        if (onNavigate) {
+          setTimeout(() => {
+            onNavigate('AI Writing');
+            addChatMessage({
+              role: 'system',
+              content: '✓ Navigated to AI Writing tab',
+            });
+          }, 500);
+        }
+      }
+
       // If rubric was explicitly requested but not found, log a warning
       if (!artifact && (isRubricRequest || desiredType === 'rubric')) {
         console.warn('⚠️ Rubric requested but AI did not provide properly formatted JSON');
@@ -257,11 +353,16 @@ export default function GlobalChatPanel({
     } catch (error) {
       console.error('Chat error:', error);
       const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
+      const retryAction = {
+        type: 'retry',
+        label: isNetworkError ? 'Retry' : 'Try Again',
+        payload: prompt
+      };
       addChatMessage({
         role: 'system',
         content: isNetworkError
-          ? '❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n[ACTION:retry|Retry|' + prompt + ']'
-          : '❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n[ACTION:retry|Try Again|' + prompt + ']',
+          ? `❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n\`\`\`json\n${JSON.stringify({ actions: [retryAction] }, null, 2)}\n\`\`\``
+          : `❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n\`\`\`json\n${JSON.stringify({ actions: [retryAction] }, null, 2)}\n\`\`\``,
       });
     } finally {
       setBusy(false);
@@ -271,6 +372,9 @@ export default function GlobalChatPanel({
   // Handle action button clicks
   const handleChatAction = useCallback(async (action: ChatAction) => {
     console.log('🎯 Chat action triggered:', action);
+    console.log('   Type:', action.type);
+    console.log('   Label:', action.label);
+    console.log('   Payload:', action.payload);
 
     try {
       switch (action.type) {
@@ -328,18 +432,30 @@ export default function GlobalChatPanel({
               // Remove any surrounding quotes that AI might have added
               const cleanedText = draftedText.replace(/^["']|["']$/g, '');
 
+              // Create JSON action instead of old [ACTION:...] format
+              const action = {
+                type: 'add_comment',
+                label: 'Add this comment',
+                payload: { text: cleanedText }
+              };
+
               addChatMessage({
                 role: 'assistant',
-                content: `Here's a draft comment:\n\n"${cleanedText}"\n\n[ACTION:add_comment|Add this comment|${cleanedText}]`,
+                content: `Here's a draft comment:\n\n"${cleanedText}"\n\n\`\`\`json\n${JSON.stringify({ actions: [action] }, null, 2)}\n\`\`\``,
                 engine: response.isReal ? 'gemini' : 'mock',
               });
             } catch (error) {
               console.error('AI draft comment failed:', error);
               // Fallback to deterministic draft
               const draftedText = await handleDraftCommentAction({ matchCardId });
+              const action = {
+                type: 'add_comment',
+                label: 'Add this comment',
+                payload: { text: draftedText }
+              };
               addChatMessage({
                 role: 'assistant',
-                content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
+                content: `Here's a draft comment:\n\n"${draftedText}"\n\n\`\`\`json\n${JSON.stringify({ actions: [action] }, null, 2)}\n\`\`\``,
               });
             } finally {
               setBusy(false);
@@ -347,9 +463,14 @@ export default function GlobalChatPanel({
           } else {
             // Use deterministic drafting when AI is unavailable
             const draftedText = await handleDraftCommentAction({ matchCardId });
+            const action = {
+              type: 'add_comment',
+              label: 'Add this comment',
+              payload: { text: draftedText }
+            };
             addChatMessage({
               role: 'assistant',
-              content: `Here's a draft comment:\n\n"${draftedText}"\n\n[ACTION:add_comment|Add this comment|${draftedText}]`,
+              content: `Here's a draft comment:\n\n"${draftedText}"\n\n\`\`\`json\n${JSON.stringify({ actions: [action] }, null, 2)}\n\`\`\``,
             });
           }
           break;
@@ -357,21 +478,40 @@ export default function GlobalChatPanel({
 
         case 'add_comment': {
           // Payload can be a string or object with {text, highlightId, page}
-          let text: string;
+          let text: string | undefined;
           let highlightId: string | undefined;
           let page: number | undefined;
 
           if (typeof action.payload === 'object' && action.payload !== null) {
-            text = action.payload.text || action.label;
+            text = action.payload.text;
             highlightId = action.payload.highlightId;
             page = action.payload.page;
-          } else {
-            text = action.payload || action.label;
+          } else if (typeof action.payload === 'string') {
+            text = action.payload;
           }
 
-          // Remove any [ACTION:...] syntax from the comment text
-          text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
-          handleAddCommentAction({ text, highlightId, page });
+          // Clean payload text of any embedded action syntax
+          if (typeof text === 'string') {
+            text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          }
+
+          // Heuristic: if payload is missing, numeric-only, or too short to be a comment, generate a sensible default from the label
+          const looksInvalid = !text || /^\d+$/.test(text) || text.length < 5;
+          if (looksInvalid) {
+            const label = (action.label || '').toLowerCase();
+            if (/paraphras/.test(label)) {
+              text = 'This passage too closely mirrors the source wording. Please paraphrase in your own words and include a proper citation.';
+            } else if (/uncited/.test(label)) {
+              text = 'Uncited material detected. Please add in-text citations or rephrase in your own words with proper attribution.';
+            } else if (/feedback|constructive/.test(label)) {
+              text = 'Consider clarifying your point and supporting it with evidence, and ensure all borrowed ideas are cited.';
+            } else {
+              // Fallback: use the label as a prefix for clarity
+              text = `${action.label || 'Comment'}`;
+            }
+          }
+
+          handleAddCommentAction({ text: text!, highlightId, page });
 
           addChatMessage({
             role: 'system',
@@ -381,27 +521,90 @@ export default function GlobalChatPanel({
         }
 
         case 'add_summary_comment': {
-          // Payload contains the summary comment text - strip any ACTION syntax
-          let text = action.payload || action.label;
-          // Remove any [ACTION:...] syntax from the comment text
-          text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          // Extract text from payload or label
+          let text = '';
+          if (action.payload && typeof action.payload === 'object' && 'text' in action.payload) {
+            text = action.payload.text;
+          } else if (typeof action.payload === 'string') {
+            text = action.payload;
+          } else if (typeof action.label === 'string') {
+            text = action.label;
+          }
+
+          // Remove any [ACTION:...] syntax from the comment text if it's a string
+          if (typeof text === 'string') {
+            text = text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          }
+
           handleAddSummaryCommentAction({ text });
 
           addChatMessage({
             role: 'system',
-            content: '✓ Summary added',
+            content: '✓ Summary added to Feedback tab',
           });
           break;
         }
 
         case 'highlight_text': {
-          // Payload contains matchCardId
-          const matchCardId = action.payload;
-          if (matchCardId) {
-            handleHighlightTextAction({ matchCardId });
+          // Extract matchCardId from payload (could be string or object with matchCardId property)
+          let matchCardId: string | null = null;
+
+          if (typeof action.payload === 'string') {
+            matchCardId = action.payload;
+          } else if (action.payload && typeof action.payload === 'object') {
+            // Try matchCardId first
+            if ('matchCardId' in action.payload) {
+              matchCardId = action.payload.matchCardId;
+            }
+            // If AI sent highlightId instead, find the matchCardId from the highlight
+            else if ('highlightId' in action.payload && contextData?.highlights) {
+              const highlightId = action.payload.highlightId;
+              console.log(`🔍 Searching for highlightId: ${highlightId}`);
+              console.log(`📦 contextData.highlights:`, contextData.highlights);
+              // Search through highlights to find the one with matching ID
+              const highlight = contextData.highlights.find((h: any) => h.id === highlightId);
+              if (highlight && highlight.matchCardId) {
+                matchCardId = highlight.matchCardId;
+                console.log(`✅ Found matchCardId ${matchCardId} from highlightId ${highlightId}`);
+              } else {
+                console.log(`❌ Could not find highlightId ${highlightId} or it has no matchCardId`);
+              }
+            }
+          }
+
+          // If still no matchCardId, try to extract from action label (e.g., "Highlight Serious Eats match")
+          if (!matchCardId && action.label) {
+            console.log(`🔍 Trying to extract source from label: ${action.label}`);
+            // Try to match against source names in sourceIdMap
+            if (contextData?.sourceIdMap) {
+              for (const [sourceName, sourceId] of Object.entries(contextData.sourceIdMap)) {
+                if (action.label.toLowerCase().includes(sourceName.toLowerCase())) {
+                  matchCardId = sourceId as string;
+                  console.log(`✅ Found matchCardId ${matchCardId} from label containing "${sourceName}"`);
+                  break;
+                }
+              }
+            }
+          }
+
+          // Normalize the match card ID
+          const normalizedId = normalizeMatchCardId(matchCardId);
+
+          if (normalizedId) {
+            const matchIndex = action.payload && typeof action.payload === 'object' && 'matchIndex' in action.payload
+              ? action.payload.matchIndex
+              : 0;
+
+            handleHighlightTextAction({ matchCardId: normalizedId, matchIndex });
             addChatMessage({
               role: 'system',
-              content: '✓ Navigated',
+              content: '✓ Navigated to highlight',
+            });
+          } else {
+            console.error('Invalid matchCardId in highlight_text action:', action.payload);
+            addChatMessage({
+              role: 'system',
+              content: '⚠️ Could not find the referenced match. Please try again.',
             });
           }
           break;
@@ -419,10 +622,12 @@ export default function GlobalChatPanel({
         }
 
         case 'show_source': {
-          const matchCardId = action.payload;
+          const matchCardId = normalizeMatchCardId(action.payload);
           if (matchCardId) {
             handleShowSourceAction({ matchCardId });
             // No confirmation message needed for show_source
+          } else {
+            addChatMessage({ role: 'system', content: '⚠️ Could not identify the referenced source.' });
           }
           break;
         }
@@ -460,9 +665,14 @@ export default function GlobalChatPanel({
 
           const nextIssue = issues[nextIndex];
           handleHighlightTextAction({ matchCardId: nextIssue.id });
+          const action = {
+            type: 'draft_comment',
+            label: 'Draft a comment',
+            payload: nextIssue.id
+          };
           addChatMessage({
             role: 'system',
-            content: `📍 Issue ${nextIndex + 1} of ${issues.length}: ${nextIssue.similarityPercent}% match to **${nextIssue.sourceName}**\n\n[ACTION:draft_comment|Draft a comment|${nextIssue.id}]`,
+            content: `📍 Issue ${nextIndex + 1} of ${issues.length}: ${nextIssue.similarityPercent}% match to **${nextIssue.sourceName}**\n\n\`\`\`json\n${JSON.stringify({ actions: [action] }, null, 2)}\n\`\`\``,
           });
           break;
         }
@@ -658,10 +868,20 @@ export default function GlobalChatPanel({
     }
   };
 
-  const handlePromptSuggestionClick = async (suggestion: string | { label: string; contextEnhancement: string }) => {
+  const handlePromptSuggestionClick = async (suggestion: string | { label: string; contextEnhancement?: string; action?: string }) => {
     // Handle both string and object formats
     const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
-    const contextEnhancement = typeof suggestion === 'string' ? '' : suggestion.contextEnhancement;
+    const contextEnhancement = typeof suggestion === 'string' ? '' : (suggestion.contextEnhancement || '');
+    const action = typeof suggestion === 'string' ? undefined : suggestion.action;
+
+    // Handle special actions
+    if (action === 'navigate_ai_writing') {
+      // Navigate to AI Writing tab
+      useStore.setState((state) => ({
+        primaryTab: 'ai-writing',
+      }));
+      // Then send the message
+    }
 
     // Directly send the suggestion instead of populating the input field
     if (!label.trim() || busy || !currentScreen) return;
@@ -761,11 +981,16 @@ export default function GlobalChatPanel({
     } catch (error) {
       console.error('Chat error:', error);
       const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
+      const retryAction = {
+        type: 'retry',
+        label: isNetworkError ? 'Retry' : 'Try Again',
+        payload: prompt
+      };
       addChatMessage({
         role: 'system',
         content: isNetworkError
-          ? '❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n[ACTION:retry|Retry|' + prompt + ']'
-          : '❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n[ACTION:retry|Try Again|' + prompt + ']',
+          ? `❌ **Connection Error**\n\nCould not connect to AI service. Please check your internet connection and try again.\n\n\`\`\`json\n${JSON.stringify({ actions: [retryAction] }, null, 2)}\n\`\`\``
+          : `❌ **Error Processing Request**\n\nSomething went wrong. This might help:\n• Try rephrasing your question\n• Check if the document is loaded\n• Refresh the page if issues persist\n\n\`\`\`json\n${JSON.stringify({ actions: [retryAction] }, null, 2)}\n\`\`\``,
       });
     } finally {
       setBusy(false);
@@ -857,44 +1082,76 @@ export default function GlobalChatPanel({
 
     const userMsg = messages[messageIndex - 1];
     const userPrompt = userMsg?.content.toLowerCase() || '';
+    const responseContent = msg.content.toLowerCase();
 
-    // Context-specific follow-ups
+    // Context-specific follow-ups based on response content and user intent
     if (currentScreen === 'document-viewer') {
-      if (userPrompt.includes('thesis') || userPrompt.includes('argument')) {
-        return [
-          'What evidence supports this thesis?',
-          'Are there any counter-arguments I should address?',
-        ];
+      const suggestions: string[] = [];
+
+      // If response mentions uncited matches or integrity issues
+      if (responseContent.includes('not cited') || responseContent.includes('uncited') || responseContent.includes('integrity issue')) {
+        suggestions.push('Draft a comment about this integrity issue');
+        if (contextData?.matchCards && contextData.matchCards.filter((mc: any) => !mc.isCited).length > 1) {
+          suggestions.push('Show me all uncited matches');
+        }
       }
-      if (userPrompt.includes('similarity') || userPrompt.includes('match')) {
-        return [
-          'How should I cite these sources?',
-          'Which matches are the most concerning?',
-        ];
+
+      // If response mentions similarity score or matches
+      if (responseContent.includes('similarity') || responseContent.includes('match') || responseContent.includes('%')) {
+        if (!suggestions.includes('Draft a comment about this integrity issue')) {
+          suggestions.push('How should I address this in my feedback?');
+        }
+        if (contextData?.matchCards && contextData.matchCards.length > 1) {
+          suggestions.push('Compare this to the other matches');
+        }
       }
-      if (userPrompt.includes('comment') || userPrompt.includes('feedback')) {
-        return [
-          'Can you suggest more feedback?',
-          'What tone should I use for this comment?',
-        ];
+
+      // If response mentions AI writing
+      if (responseContent.includes('ai writing') || responseContent.includes('ai-generated')) {
+        suggestions.push('What are the signs of AI-generated content?');
+        suggestions.push('How should I handle suspected AI writing?');
       }
-      return [
-        'What else should I look for in this document?',
-        'Can you explain this in more detail?',
-      ];
+
+      // If response is about a specific source
+      if (responseContent.match(/\d+%/) && contextData?.matchCards) {
+        const hasCitationIssues = contextData.matchCards.some((mc: any) => !mc.isCited);
+        if (hasCitationIssues && !suggestions.some(s => s.includes('integrity'))) {
+          suggestions.push('Should this affect their grade?');
+        }
+      }
+
+      // If discussing grading or rubrics
+      if (responseContent.includes('grade') || responseContent.includes('rubric') || responseContent.includes('score')) {
+        suggestions.push('What criteria should I prioritize?');
+        suggestions.push('Is this consistent with my rubric?');
+      }
+
+      // Default instructor-focused suggestions
+      if (suggestions.length === 0) {
+        suggestions.push('What feedback would be most effective here?');
+        suggestions.push('Are there other concerns I should address?');
+      }
+
+      return suggestions.slice(0, 2);
     }
 
     if (currentScreen === 'inbox') {
+      if (responseContent.includes('priority') || responseContent.includes('review')) {
+        return [
+          'Show me the top priority submissions',
+          'Filter by high similarity and AI indicators',
+        ];
+      }
       return [
-        'Show me submissions with high similarity',
-        'What trends do you see in recent submissions?',
+        'Which submissions need immediate attention?',
+        'Show trends in similarity scores',
       ];
     }
 
-    // Generic follow-ups
+    // Generic instructor-focused follow-ups
     return [
-      'Can you explain that differently?',
-      'What should I do next?',
+      'What action should I take based on this?',
+      'Are there similar issues in other submissions?',
     ];
   };
 
@@ -915,10 +1172,10 @@ export default function GlobalChatPanel({
     ? {
         // Static in flex layout but constrained to viewport with sticky top
         position: 'sticky',
-        top: '5rem',
+        top: '6.5rem', // account for stacked nav bars + tabs
         width: `${expandedWidth}px`,
         flexShrink: 0,
-        height: 'calc(100vh - 5rem)',
+        height: 'calc(100vh - 6.5rem)',
         overflow: 'hidden',
         transition: 'width 300ms ease-in-out',
       }
@@ -926,7 +1183,7 @@ export default function GlobalChatPanel({
         // Overlay panel below nav bars
         position: 'fixed',
         right: '1rem',
-        top: '5rem',
+        top: '6.5rem',
         bottom: '1rem',
         width: `${expandedWidth}px`,
         zIndex: 1000,
@@ -1034,11 +1291,8 @@ export default function GlobalChatPanel({
                   <button
                     key={idx}
                     onClick={async () => {
-                      setInput(label);
-                      // Auto-send after a brief delay to show the input
-                      setTimeout(async () => {
-                        await sendMessage();
-                      }, 50);
+                      // Send the message directly without populating input box
+                      await sendMessage(label);
                     }}
                     className="px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left text-gray-700 text-sm"
                   >
@@ -1053,8 +1307,29 @@ export default function GlobalChatPanel({
         {messages.map((msg) => {
           // Parse actions from assistant and system messages
           let parsedContent = (msg.role === 'assistant' || msg.role === 'system')
-            ? parseActionsFromResponse(msg.content)
+            ? parseActionsStrictJson(msg.content)
             : { text: msg.content, actions: [] };
+
+          // Clean up any malformed artifact syntax that wasn't properly parsed
+          // Remove lines like: type:"table" title:"..." headers: [...] rows: [...]
+          if (parsedContent.text) {
+            // Match both single-line and multi-line malformed artifacts
+            const beforeClean = parsedContent.text;
+            parsedContent.text = parsedContent.text.replace(
+              /type:\s*"[^"]+"\s+title:\s*"[^"]+"\s+headers:\s*\[[\s\S]*?\]\s+rows:\s*\[[\s\S]*?\]/g,
+              '[Table data removed - malformed format]'
+            ).trim();
+
+            if (beforeClean !== parsedContent.text) {
+              console.log('🧹 Cleaned malformed artifact from message');
+            }
+          }
+
+          // Ensure parsedContent.text is always a string, never an object
+          if (typeof parsedContent.text !== 'string') {
+            console.error('❌ parsedContent.text is not a string:', typeof parsedContent.text, parsedContent.text);
+            parsedContent.text = String(parsedContent.text);
+          }
 
           // Apply fallback action buttons if AI didn't include any (only for assistant messages)
           if (msg.role === 'assistant' && parsedContent.actions.length === 0) {
@@ -1106,28 +1381,103 @@ export default function GlobalChatPanel({
                       </div>
                     </>
                   ) : (
-                    <Markdown
-                      text={parsedContent.text}
-                      matchCards={contextData?.matchCards}
-                      onCitationClick={(sourceId) => {
-                        handleShowSourceAction({ sourceId });
-                      }}
-                    />
+                    <>
+                      <Markdown
+                        text={parsedContent.text}
+                        matchCards={contextData?.matchCards}
+                        onCitationClick={(sourceId) => {
+                          handleShowSourceAction({ sourceId });
+                        }}
+                      />
+                      {/* Render table artifacts inline */}
+                      {msg.artifact && msg.artifact.type === 'table' && (
+                        <div className="mt-3 overflow-x-auto">
+                          {msg.artifact.title && (
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">{msg.artifact.title}</h4>
+                          )}
+                          <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg text-xs">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                {(msg.artifact.headers || []).map((header: string, i: number) => (
+                                  <th
+                                    key={i}
+                                    className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                                  >
+                                    {header}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(msg.artifact.rows || []).map((row: string[], rowIndex: number) => (
+                                <tr key={rowIndex} className="hover:bg-gray-50">
+                                  {row.map((cell: string, cellIndex: number) => (
+                                    <td key={cellIndex} className="px-3 py-2 text-xs text-gray-900">
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Render action buttons if present */}
-                  {parsedContent.actions.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {parsedContent.actions.map((action, idx) => (
-                        <ChatActionButton
-                          key={idx}
-                          action={action}
-                          onAction={handleChatAction}
-                          disabled={busy}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    if (!parsedContent.actions || parsedContent.actions.length === 0) return null;
+                    // De-duplicate by type+label to avoid many identical buttons
+                    const seen = new Set<string>();
+                    let cleaned = parsedContent.actions.filter((a) => {
+                      const key = `${a.type}:${a.label}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    }).slice(0, 8);
+                    // Improve ambiguous labels and enrich show_source with source name/percent
+                    cleaned = cleaned.map((a) => {
+                      if (a.type === 'add_comment' && /uncited/i.test(a.label)) {
+                        return { ...a, label: 'Add comment about uncited matches' };
+                      }
+                      if (a.type === 'add_comment' && /paraphras/i.test(a.label)) {
+                        return { ...a, label: 'Add comment about paraphrasing concerns' };
+                      }
+                      if (a.type === 'draft_comment' && /constructive feedback/i.test(a.label)) {
+                        return { ...a, label: 'Draft constructive feedback comment' };
+                      }
+                      if (a.type === 'show_source') {
+                        const id = normalizeMatchCardId(a.payload);
+                        const mc = id && (contextData?.matchCards || []).find((m: any) => m.id === id);
+                        if (mc) {
+                          return { ...a, label: `Show source: ${mc.sourceName} (${mc.similarityPercent}%)`, payload: id };
+                        }
+                      }
+                      return a;
+                    });
+
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {cleaned.map((action, idx) => {
+                          let normalized = action;
+                          if (action.type === 'show_source') {
+                            const id = normalizeMatchCardId(action.payload);
+                            if (!id) return null;
+                            normalized = { ...action, payload: id };
+                          }
+                          return (
+                            <ChatActionButton
+                              key={idx}
+                              action={normalized}
+                              onAction={handleChatAction}
+                              disabled={busy}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   {/* Message feedback buttons (thumbs up/down, copy, regenerate) - only for assistant messages */}
                   {msg.role === 'assistant' && (
@@ -1206,9 +1556,8 @@ export default function GlobalChatPanel({
                                 {followUps.map((question, idx) => (
                                   <button
                                     key={idx}
-                                    onClick={() => {
-                                      setInput(question);
-                                      inputRef.current?.focus();
+                                    onClick={async () => {
+                                      await sendMessage(question);
                                     }}
                                     className="text-left px-3 py-2 text-xs bg-gray-50 hover:bg-blue-50 rounded text-gray-700 hover:text-blue-700 transition-colors"
                                   >
@@ -1224,8 +1573,8 @@ export default function GlobalChatPanel({
                   )}
                 </div>
 
-                {/* Render "View Artifact" button if message has an artifact - full width at bottom */}
-                {msg.artifact && (
+                {/* Render "View Artifact" button if message has an artifact (except tables which are shown inline) */}
+                {msg.artifact && msg.artifact.type !== 'table' && (
                   <button
                     onClick={() => setGeneratingArtifact(true, msg.artifact)}
                     className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all border-t border-blue-400"
@@ -1255,25 +1604,38 @@ export default function GlobalChatPanel({
       </div>
 
       {/* Prompt Suggestions - Collapsible */}
-      {promptSuggestions.length > 0 && (
+      {shuffledSuggestions.length > 0 && (
         <div className="border-t bg-gray-50 flex-shrink-0">
           {/* Collapse toggle bar */}
-          <button
-            onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
-            className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-100 transition-colors"
-          >
-            <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
-              Suggested Actions
-            </div>
-            <svg
-              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${suggestionsExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="w-full px-3 py-2 flex items-center justify-between">
+            <button
+              onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
+                Suggested Actions
+              </div>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${suggestionsExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isDocumentViewer && (
+              <button
+                onClick={shuffleSuggestions}
+                className="p-1 rounded hover:bg-gray-200 transition-colors"
+                title="Refresh suggestions"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+          </div>
 
           {/* Expandable content */}
           <div
@@ -1282,7 +1644,7 @@ export default function GlobalChatPanel({
             }`}
           >
             <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-              {promptSuggestions.map((suggestion, idx) => {
+              {shuffledSuggestions.map((suggestion, idx) => {
                 const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
                 return (
                   <button
@@ -1553,13 +1915,31 @@ function ReportArtifact({ artifact }: { artifact: any }) {
           <div key={idx} className="space-y-2">
             <h5 className="font-semibold text-sm text-gray-900">{section.heading}</h5>
             {section.content && (
-              <p className="text-sm text-gray-700">{section.content}</p>
+              <div className="text-sm text-gray-700">
+                <Markdown text={section.content} />
+              </div>
             )}
             {section.items && (
               <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                {section.items.map((item: string, itemIdx: number) => (
-                  <li key={itemIdx}>{item}</li>
-                ))}
+                {section.items.map((item: any, itemIdx: number) => {
+                  // Handle table objects nested in report items
+                  if (typeof item === 'object' && item?.type === 'table') {
+                    return (
+                      <li key={itemIdx} className="list-none -ml-5">
+                        <TableArtifact artifact={item} />
+                      </li>
+                    );
+                  }
+                  // Handle regular string items - parse as Markdown
+                  if (typeof item === 'string') {
+                    return (
+                      <li key={itemIdx}>
+                        <Markdown text={item} />
+                      </li>
+                    );
+                  }
+                  return <li key={itemIdx}>{JSON.stringify(item)}</li>;
+                })}
               </ul>
             )}
           </div>

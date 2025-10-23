@@ -24,7 +24,9 @@ export interface ParsedChatResponse {
  * - [ACTION:navigate|Go to Grading tab|Grading]
  */
 export function parseActionsFromResponse(text: string): ParsedChatResponse {
-  const actionRegex = /\[ACTION:(\w+)\|([^\]|]+)(?:\|([^\]]+))?\]/g;
+  // Match: [ACTION:type|Label text|optional payload]
+  // Label captures any text until '|' or ']' ; payload captures any text until ']'
+  const actionRegex = /\[ACTION:(\w+)\|([^\|\]]+)(?:\|([^\]]+))?\]/g;
   const actions: ChatAction[] = [];
   const seen = new Set<string>();
   let match;
@@ -71,6 +73,104 @@ export function parseActionsFromResponse(text: string): ParsedChatResponse {
     text: cleanText,
     actions,
   };
+}
+
+/**
+ * Prefer structured actions embedded in a ```json code block.
+ * Accepts shapes:
+ *  - { actions: ChatAction[] }
+ *  - { type: 'actions', actions: ChatAction[] }
+ *  - ChatAction[] (bare array)
+ * Falls back to bracket-parser when no JSON actions found.
+ */
+export function parseActionsPreferJson(text: string): ParsedChatResponse {
+  const codeBlockRegex = /```json\s*\n([\s\S]*?)```/g;
+  let foundActions: ChatAction[] = [];
+  const blocksToRemove: string[] = [];
+
+  const tryCollect = (jsonText: string) => {
+    try {
+      const data = JSON.parse(jsonText);
+      let arr: any[] | null = null;
+      if (Array.isArray(data)) arr = data;
+      else if (data && Array.isArray((data as any).actions)) arr = (data as any).actions;
+      else if (data && (data as any).type === 'actions' && Array.isArray((data as any).actions)) arr = (data as any).actions;
+      if (arr && arr.length) {
+        // Validate and coerce minimal fields
+        const valid = arr
+          .map((a) => {
+            if (!a || typeof a !== 'object') return null;
+            const type = String(a.type || '').trim();
+            const label = String(a.label || '').trim();
+            const payload = 'payload' in a ? (a as any).payload : undefined;
+            const allowed = new Set([
+              'draft_comment', 'add_comment', 'add_summary_comment', 'highlight_text', 'navigate', 'generate_list', 'show_source', 'next_issue', 'prev_issue', 'retry'
+            ]);
+            if (!allowed.has(type as any)) return null;
+            const finalLabel = label || defaultLabelFor(type as any);
+            return { type, label: finalLabel, payload } as ChatAction;
+          })
+          .filter(Boolean) as ChatAction[];
+        if (valid.length) {
+          foundActions = valid;
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  };
+
+  let m: RegExpExecArray | null;
+  while ((m = codeBlockRegex.exec(text)) !== null) {
+    const block = m[0];
+    const body = m[1];
+    if (tryCollect(body)) {
+      blocksToRemove.push(block);
+      // continue scanning in case multiple blocks contain actions; last one wins
+    }
+  }
+
+  if (foundActions.length > 0) {
+    // Remove only the blocks we identified as actions to avoid stripping other artifacts
+    let cleaned = text;
+    for (const block of blocksToRemove) cleaned = cleaned.replace(block, '').trim();
+    return { text: cleaned, actions: foundActions };
+  }
+
+  // Fallback to bracket format
+  return parseActionsFromResponse(text);
+}
+
+/**
+ * Phase 2: Strict JSON-only parsing for actions.
+ * Returns empty actions when no JSON actions are present.
+ */
+export function parseActionsStrictJson(text: string): ParsedChatResponse {
+  const result = parseActionsPreferJson(text);
+  // If preferJson fell back to bracket parsing, undo that and return only cleaned text w/o actions
+  // Heuristic: preferJson only falls back when it found no JSON and used bracket parsing.
+  // Detect bracket-only artifacts by checking for residual [ACTION:…] patterns and discarding them.
+  if (result.actions.length === 0) {
+    // Remove any legacy [ACTION:...] markup from text
+    const cleaned = result.text.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+    return { text: cleaned, actions: [] };
+  }
+  return result;
+}
+
+function defaultLabelFor(type: ChatAction['type']): string {
+  switch (type) {
+    case 'show_source': return 'Show source';
+    case 'draft_comment': return 'Draft comment';
+    case 'add_comment': return 'Add comment';
+    case 'add_summary_comment': return 'Add summary comment';
+    case 'highlight_text': return 'Highlight issue';
+    case 'navigate': return 'Navigate';
+    case 'next_issue': return 'Next issue';
+    case 'prev_issue': return 'Previous issue';
+    case 'retry': return 'Retry';
+    default: return 'Action';
+  }
 }
 
 /**
@@ -139,7 +239,42 @@ export function ensureActionButtons(
     }
   }
 
-  // Pattern 2: Issues/concerns mentioned (only on document-viewer)
+  // Pattern 2: User asks to see/show largest match (only on document-viewer)
+  if (
+    isDocumentViewer &&
+    (
+      (prompt.includes('show') || prompt.includes('see') || prompt.includes('view')) &&
+      (prompt.includes('largest') || prompt.includes('biggest') || prompt.includes('highest')) &&
+      (prompt.includes('match') || prompt.includes('highlight') || prompt.includes('source'))
+    )
+  ) {
+    // Get top 3 matches sorted by similarity
+    const topMatches = context.matchCards
+      ?.slice()
+      .sort((a, b) => b.similarityPercent - a.similarityPercent)
+      .slice(0, 3);
+
+    if (topMatches && topMatches.length > 0) {
+      // Skip the first match (it will be auto-triggered)
+      // Only add buttons for 2nd and 3rd largest
+      if (topMatches.length > 1) {
+        fallbackActions.push({
+          type: 'highlight_text',
+          label: `View 2nd largest: ${topMatches[1].id} (${topMatches[1].similarityPercent}%)`,
+          payload: { matchCardId: topMatches[1].id },
+        });
+      }
+      if (topMatches.length > 2) {
+        fallbackActions.push({
+          type: 'highlight_text',
+          label: `View 3rd largest: ${topMatches[2].id} (${topMatches[2].similarityPercent}%)`,
+          payload: { matchCardId: topMatches[2].id },
+        });
+      }
+    }
+  }
+
+  // Pattern 3: Issues/concerns mentioned (only on document-viewer)
   if (
     isDocumentViewer &&
     (

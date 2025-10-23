@@ -108,8 +108,8 @@ export function DocumentContent({
             />
           ))}
 
-          {/* Floating Comment Cards - positioned inside the transformed paper container */}
-          {showComments && <FloatingCommentCards />}
+          {/* Floating Comment Cards - rendered next to their highlights using CSS positioning */}
+          {showComments && <FloatingCommentCards currentPage={currentPage} />}
         </div>
       </div>
 

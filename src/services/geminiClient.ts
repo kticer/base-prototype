@@ -109,6 +109,12 @@ export type GeminiContext = {
  * In production, replace with a real API call.
  */
 export async function askGemini(prompt: string, ctx: GeminiContext): Promise<{ text: string; isReal: boolean }> {
+  // Guard against empty prompts
+  if (!prompt || !prompt.trim()) {
+    console.error('askGemini called with empty prompt, returning mock response');
+    return { text: 'Error: No prompt provided', isReal: false };
+  }
+
   const useReal = import.meta.env?.VITE_USE_REAL_GEMINI === 'true';
   if (useReal) {
     try {
@@ -195,7 +201,29 @@ export async function askGemini(prompt: string, ctx: GeminiContext): Promise<{ t
     if (p.includes('feedback') || p.includes('improve')) {
       return { text: `Suggested feedback for "${doc.title}": 1) Clarify the thesis. 2) Strengthen transitions. 3) Add citations.`, isReal: false };
     }
-    return { text: `I'm here to help with "${doc.title}" by ${doc.author}. Ask for a summary, feedback, or to navigate (e.g., "Go to grading").`, isReal: false };
+    // Build minimal structured actions for document-viewer
+    const buildDocActions = (): any[] => {
+      const actions: any[] = [];
+      const top = matchCards.slice().sort((a, b) => (b.similarityPercent || 0) - (a.similarityPercent || 0))[0];
+      const paraphraseIntent = /paraphras|assess paraphrasing|rewrite|rephrase/.test(p);
+      const uncitedIntent = /uncited|not cited/.test(p);
+      if (top && top.id) {
+        actions.push({ type: 'show_source', label: `Show source: ${top.sourceName} (${top.similarityPercent || 0}%)`, payload: { matchCardId: top.id } });
+      }
+      if (paraphraseIntent) {
+        actions.push({ type: 'add_comment', label: 'Add comment about paraphrasing', payload: { text: 'This passage too closely mirrors the source wording. Please paraphrase in your own words and include a proper citation.' } });
+      }
+      if (uncitedIntent) {
+        actions.push({ type: 'add_comment', label: 'Add comment about uncited matches', payload: { text: 'Uncited material detected. Please add in-text citations or rephrase in your own words with proper attribution.' } });
+      }
+      // Keep list short
+      return actions.slice(0, 4);
+    };
+
+    const base = `I'm here to help with "${doc.title}" by ${doc.author}. Ask for a summary, feedback, or to navigate (e.g., "Go to grading").`;
+    const actions = buildDocActions();
+    const actionsBlock = actions.length ? `\n\n\`\`\`json\n${JSON.stringify({ actions }, null, 2)}\n\`\`\`` : '';
+    return { text: base + actionsBlock, isReal: false };
   }
 
   // Generic fallback
@@ -207,6 +235,14 @@ export async function askGeminiStream(
   ctx: GeminiContext,
   onChunk: (chunk: string) => void,
 ): Promise<{ text: string; isReal: boolean }> {
+  // Guard against empty prompts
+  if (!prompt || !prompt.trim()) {
+    console.error('askGeminiStream called with empty prompt, returning mock response');
+    const errorText = 'Error: No prompt provided';
+    onChunk(errorText);
+    return { text: errorText, isReal: false };
+  }
+
   const useReal = import.meta.env?.VITE_USE_REAL_GEMINI === 'true';
   if (useReal) {
     try {
