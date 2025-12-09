@@ -497,5 +497,88 @@
       "isExcluded": false,
       "matchCardId": "mc8"
     }
+  ],
+  "aiWritingHighlights": [
+    {
+      "id": "ai1",
+      "type": "ai-paraphrased",
+      "startOffset": 0,
+      "endOffset": 280,
+      "text": "Introduction The Cold War, a prolonged conflict between the United States and the Soviet Union from 1945 to 1991, was fueled by a complex interplay of political rivalry, economic competition, and ideological incompatibility.",
+      "page": 1,
+      "confidence": 89
+    },
+    {
+      "id": "ai2",
+      "type": "ai-generated",
+      "startOffset": 281,
+      "endOffset": 520,
+      "text": "Emerging from the ashes of World War II, the U.S. and the USSR represented fundamentally opposing systems — capitalist democracy versus Marxist-Leninist communism.",
+      "page": 1,
+      "confidence": 93
+    },
+    {
+      "id": "ai3",
+      "type": "ai-generated",
+      "startOffset": 521,
+      "endOffset": 750,
+      "text": "These ideological differences underpinned global conflicts, influenced economic policies, and fueled political maneuvers from Europe to Asia and beyond.",
+      "page": 1,
+      "confidence": 87
+    },
+    {
+      "id": "ai4",
+      "type": "ai-paraphrased",
+      "startOffset": 0,
+      "endOffset": 185,
+      "text": "Economically, the Cold War was driven by competing visions for postwar reconstruction and development. The Marshall Plan (Document C), announced in 1947, provided over $12 billion in aid to rebuild Western European economies.",
+      "page": 2,
+      "confidence": 91
+    },
+    {
+      "id": "ai5",
+      "type": "ai-generated",
+      "startOffset": 186,
+      "endOffset": 425,
+      "text": "While officially framed as humanitarian assistance, the Marshall Plan had a clear economic and political objective: to strengthen capitalist economies and prevent them from turning to communism.",
+      "page": 2,
+      "confidence": 88
+    },
+    {
+      "id": "ai6",
+      "type": "ai-paraphrased",
+      "startOffset": 820,
+      "endOffset": 1080,
+      "text": "At the heart of the Cold War was a fundamental ideological clash between liberal democracy and communism. This ideological tension shaped the rhetoric, propaganda, and military engagements of the era.",
+      "page": 2,
+      "confidence": 94
+    },
+    {
+      "id": "ai7",
+      "type": "ai-generated",
+      "startOffset": 0,
+      "endOffset": 245,
+      "text": "The Cold War's political, economic, and ideological tensions shaped not only the superpowers' policies but also the fates of developing nations. In Korea (1950-1953) and Vietnam (1955-1975), ideological competition between communism and capitalism played out in bloody proxy wars.",
+      "page": 3,
+      "confidence": 90
+    },
+    {
+      "id": "ai8",
+      "type": "ai-paraphrased",
+      "startOffset": 650,
+      "endOffset": 890,
+      "text": "Conclusion The Cold War was driven by the interplay of political rivalry, economic competition, and ideological conflict. Politically, the division of Europe and the formation of opposing alliances created a world defined by two hostile camps.",
+      "page": 3,
+      "confidence": 86
+    },
+    {
+      "id": "ai9",
+      "type": "ai-generated",
+      "startOffset": 891,
+      "endOffset": 1150,
+      "text": "Economically, both superpowers used aid and trade as weapons to win influence across the globe. Ideologically, the clash between capitalism and communism provided the moral framework for decades of tension, proxy wars, and arms races.",
+      "page": 3,
+      "confidence": 92
+    }
   ]
 }

@@ -3,10 +3,8 @@ import { InboxNavBar } from '../components/inbox/InboxNavBar';
 import InboxTabs from '../components/inbox/InboxTabs';
 import { usePageTitle } from '../hooks/usePageTitle';
 import type { FolderOrDocument } from '../types';
-import GlobalChatPanel from '../components/chatbot/GlobalChatPanel';
 import { PrototypeControls } from '../components/settings/PrototypeControls';
 import { FeatureFlagsModal } from '../components/settings/FeatureFlagsModal';
-import { useStore } from '../store';
 import { useCourseAnalytics } from '../hooks/useCourseAnalytics';
 import { CourseStatsCards } from '../components/insights/CourseStatsCards';
 import { SimilarityDistributionChart } from '../components/insights/SimilarityDistributionChart';
@@ -30,7 +28,6 @@ import { RedFlagDashboard } from '../components/insights/RedFlagDashboard';
 
 export default function InsightsPage() {
   usePageTitle('Insights – iThenticate Prototype');
-  const { chat } = useStore();
   const { analytics, loading: analyticsLoading } = useCourseAnalytics(true);
   const [rootItems, setRootItems] = useState<FolderOrDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,7 +241,7 @@ export default function InsightsPage() {
 
       {/* Main content area */}
       <div className="bg-gray-50">
-        <InboxNavBar title="Insights" onSearchChange={() => {}} screen="insights" />
+        <InboxNavBar title="Insights" onSearchChange={() => {}} />
         <InboxTabs />
 
         {/* Two-column layout: left content with padding, right chat unconstrained by content padding */}
@@ -371,9 +368,6 @@ export default function InsightsPage() {
               </div>
             )}
           </div>
-
-          {/* Right: Chat panel */}
-          <GlobalChatPanel contextData={chatContext} promptSuggestions={promptSuggestions} />
         </div>
       </div>
 

@@ -43,8 +43,8 @@ export function FloatingCommentCards() {
 
           console.log(`💬 Starting position calc for ${comment.id}:`, {
             highlightTag: highlightElement.tagName,
-            highlightOffsetTop: highlightElement.offsetTop,
-            highlightOffsetParent: highlightElement.offsetParent?.nodeName,
+            highlightOffsetTop: (highlightElement as HTMLElement).offsetTop,
+            highlightOffsetParent: (highlightElement as HTMLElement).offsetParent?.nodeName,
             documentContentTag: documentContent.tagName
           });
 

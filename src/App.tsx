@@ -18,12 +18,6 @@ import { DocumentErrorFallback } from './components/error/DocumentErrorFallback'
 function App() {
   const matchCards = useStore((s) => s.matchCards);
   const assignColors = useAssignColors();
-  const loadChatHistory = useStore((s) => s.loadChatHistory);
-
-  // Load chat history on app startup
-  useEffect(() => {
-    loadChatHistory();
-  }, [loadChatHistory]);
 
   useEffect(() => {
     if (matchCards.length > 0) {

@@ -3,14 +3,15 @@ import ReportContainer from './ReportContainer';
 import { FeedbackPanel } from '../feedback/FeedbackPanel';
 import { GradingPanel } from '../feedback/GradingPanel';
 import { AIWritingPanel } from './AIWritingPanel';
+import { AIWritingLearnMore } from './AIWritingLearnMore';
 import type { MatchCard, DocumentData } from '../../types';
-import ChatbotPanel from '../chatbot/ChatbotPanel';
 import { useStore } from '../../store';
 import { getPageElement, createRangeFromPageOffsets, wrapRangeWithSpan, findOffsetsByText } from '../../utils/highlightDom';
 
 interface DocumentSidebarProps {
   sidebarVisible: boolean;
   similarityScore: number;
+  aiWritingPercentage?: number;
   activeTab: string;
   onActiveTabChange: (tab: string) => void;
   primaryTab: string;
@@ -24,6 +25,7 @@ interface DocumentSidebarProps {
 export function DocumentSidebar({
   sidebarVisible,
   similarityScore,
+  aiWritingPercentage = 0,
   activeTab,
   onActiveTabChange,
   primaryTab,
@@ -132,37 +134,27 @@ export function DocumentSidebar({
         {primaryTab === "Grading" && (
           <GradingPanel />
         )}
-        {primaryTab === "Chat" && (
-          <div className="h-[calc(100vh-12rem)] -m-4">
-            <ChatbotPanel
-              doc={doc}
-              similarityScore={similarityScore}
-              onNavigate={onNavigate}
-              currentPage={currentPage}
-              selection={selection || undefined}
-              onAddComment={addCommentFromTool}
-              onAddHighlight={addHighlightFromTool}
-            />
-          </div>
-        )}
         {primaryTab === "AI Writing" && (
-          <AIWritingPanel
-            overallPercentage={24}
-            totalPages={doc.pages?.length || 3}
-            aiGeneratedOnly={{
-              count: 5,
-              percentage: 24,
-            }}
-            aiParaphrased={{
-              count: 0,
-              percentage: 0,
-            }}
-            pageBreakdown={doc.pages?.map((_, idx) => ({
-              page: idx + 1,
-              // Mock: varied AI percentages across pages
-              aiPercentage: idx === 0 ? 60 : idx === 1 ? 20 : 5,
-            }))}
-          />
+          <div className="flex flex-col">
+            <AIWritingPanel
+              overallPercentage={aiWritingPercentage}
+              totalPages={doc.pages?.length || 3}
+              aiGeneratedOnly={{
+                count: 5,
+                percentage: 24,
+              }}
+              aiParaphrased={{
+                count: 0,
+                percentage: 0,
+              }}
+              pageBreakdown={doc.pages?.map((_, idx) => ({
+                page: idx + 1,
+                // Mock: varied AI percentages across pages
+                aiPercentage: idx === 0 ? 60 : idx === 1 ? 20 : 5,
+              }))}
+            />
+            <AIWritingLearnMore />
+          </div>
         )}
         {primaryTab === "Flags" && (
           <div className="space-y-4">

@@ -39,7 +39,6 @@ import {
   ChatBubbleBottomCenterTextIcon,
   PencilIcon,
 } from '@heroicons/react/24/outline';
-import GlobalChatPanel from '../components/chatbot/GlobalChatPanel';
 
 type SimilarityAnnotation = Highlight & { type: 'similarity' };
 type CommentAnnotation = {
@@ -54,8 +53,15 @@ type GradingAnnotation = {
   endOffset: number;
   type: 'grading';
 };
+type AIWritingAnnotation = {
+  id: string;
+  aiWritingType: 'ai-generated' | 'ai-paraphrased';
+  startOffset: number;
+  endOffset: number;
+  type: 'ai-writing';
+};
 // Union type for different annotation types
-// type Annotation = SimilarityAnnotation | CommentAnnotation | GradingAnnotation;
+// type Annotation = SimilarityAnnotation | CommentAnnotation | GradingAnnotation | AIWritingAnnotation;
 
 export default function DocumentViewer() {
   const assignColors = useStore((s) => s.assignColors);
@@ -83,19 +89,19 @@ export default function DocumentViewer() {
   // Don't use useSimilarityScore - it sums match card percentages incorrectly
   // Instead, we'll get the actual similarity from folder_structure.json
   const [actualSimilarity, setActualSimilarity] = useState<number | null>(null);
-  const { tabState, setTabState, selectedCommentId, sidebarVisible, toggleSidebar, chat, openChat } =
+  const { tabState, setTabState, selectedCommentId, sidebarVisible, toggleSidebar } =
     useStore();
   const { toasts, showToast, hideToast } = useToast();
   const { deleteState, handleDelete, cancelDeletion } =
     useStrikethroughDeletion();
 
-  // Calculate responsive layout - always show comment column for universal commenting
-  const showCommentColumn = true; // Enable comments on all tabs
+  // Calculate responsive layout - show comment column on all tabs except AI Writing
+  const showCommentColumn = primaryTab !== 'AI Writing';
   const { paperOffset, showComments, scale } = useResponsiveLayout(
     showCommentColumn,
     sidebarVisible,
-    chat.panelWidth,
-    chat.displayMode
+    0, // No chat panel width
+    'overlay' // Default mode
   );
 
   // Handle comment highlight cleanup when comments are deleted
@@ -110,13 +116,10 @@ export default function DocumentViewer() {
   // Use saveNow for manual save operations (prevent unused variable warning)
   console.log('Manual save available:', typeof saveNow === 'function');
 
-  // Open chat for document-viewer screen on mount
-  useEffect(() => {
-    openChat('document-viewer');
-  }, [openChat]);
-
   // Update activeTab default when primaryTab changes
   useEffect(() => {
+    console.log('[DocumentViewer] Tab changed to:', primaryTab);
+
     if (primaryTab === 'Similarity') {
       setActiveTab('Match Groups');
       // Always show similarity highlights in Similarity tab
@@ -125,6 +128,10 @@ export default function DocumentViewer() {
         secondaryTab: 'Match Groups',
         showSimilarityHighlights: true,
       });
+    } else if (primaryTab === 'AI Writing') {
+      setActiveTab('');
+      setTabState({ primaryTab, secondaryTab: '' });
+      console.log('[DocumentViewer] Switched to AI Writing tab, doc has', doc?.aiWritingHighlights?.length || 0, 'AI highlights');
     } else if (primaryTab === 'Feedback') {
       setActiveTab('QuickMarks');
       setTabState({ primaryTab, secondaryTab: 'QuickMarks' });
@@ -132,7 +139,7 @@ export default function DocumentViewer() {
       setActiveTab(''); // Grading doesn't have sub-tabs
       setTabState({ primaryTab, secondaryTab: '' });
     }
-  }, [primaryTab, setTabState]);
+  }, [primaryTab, setTabState, doc]);
 
   // Initialize text selection for feedback/grading modes
   const {
@@ -270,6 +277,13 @@ export default function DocumentViewer() {
         // Set the base document in local state
         setDoc(validatedData);
 
+        // Debug: Check if AI Writing highlights are loaded
+        console.log('[DocumentViewer] Loaded document:', {
+          id: validatedData.id,
+          aiWritingHighlights: validatedData.aiWritingHighlights,
+          aiWritingCount: validatedData.aiWritingHighlights?.length || 0,
+        });
+
         // Load document into layered data system
         await storeLoadDocument(validatedId, validatedData);
 
@@ -338,7 +352,7 @@ export default function DocumentViewer() {
 
   // Removed duplicate scroll effect - consolidated below
 
-  // Compute pages with useMemo, but always render similarity highlights - just control visibility with CSS
+  // Compute pages with useMemo, re-render when primaryTab changes to switch highlights
   const { pages, wordCount } = useMemo(() => {
     if (!doc) return { pages: [], wordCount: 0 };
     let totalWords = 0;
@@ -351,12 +365,14 @@ export default function DocumentViewer() {
           .join('\n'),
         doc.highlights.filter((hl) => hl.page === page.number),
         doc,
-        true, // Always render similarity highlights, control visibility with CSS
+        primaryTab, // Pass current tab to switch highlights
+        true, // Always render similarity highlights when on Similarity tab
+        page.number, // Pass page number for AI Writing highlights
       );
       return rendered;
     });
     return { pages: computedPages, wordCount: totalWords };
-  }, [doc]); // Remove tabState.showSimilarityHighlights from dependencies
+  }, [doc, primaryTab]); // Add primaryTab to dependencies to re-render on tab change
 
   // Removed DOM ref registration - components now handle their own scrolling behavior
 
@@ -420,6 +436,28 @@ export default function DocumentViewer() {
       } : null,
       sourceTypes,
     };
+  }, [doc]);
+
+  // Calculate AI Writing percentage based on text coverage
+  const aiWritingPercentage = useMemo(() => {
+    if (!doc || !doc.aiWritingHighlights || doc.aiWritingHighlights.length === 0) {
+      return 0;
+    }
+
+    // Calculate total character count in document
+    let totalChars = 0;
+    doc.pages.forEach((page) => {
+      totalChars += page.content.length;
+    });
+
+    // Calculate total characters covered by AI writing highlights
+    let aiChars = 0;
+    doc.aiWritingHighlights.forEach((hl) => {
+      aiChars += (hl.endOffset - hl.startOffset);
+    });
+
+    // Return percentage rounded to nearest integer
+    return totalChars > 0 ? Math.round((aiChars / totalChars) * 100) : 0;
   }, [doc]);
 
   // Context data for chat (after pages is computed)
@@ -611,6 +649,9 @@ export default function DocumentViewer() {
       <PrimaryTabNavigation
         primaryTab={primaryTab}
         onPrimaryTabChange={setPrimaryTab}
+        similarityPercentage={actualSimilarity ?? 0}
+        aiWritingPercentage={aiWritingPercentage}
+        flagsCount={0}
       />
 
       {/* Main Content Container */}
@@ -650,6 +691,7 @@ export default function DocumentViewer() {
         <DocumentSidebar
           sidebarVisible={sidebarVisible}
           similarityScore={actualSimilarity ?? 0}
+          aiWritingPercentage={aiWritingPercentage}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
           primaryTab={primaryTab}
@@ -659,36 +701,8 @@ export default function DocumentViewer() {
           currentPage={currentPage}
           selection={selectionState ? { text: selectionState.text, page: selectionState.pageNumber } : null}
         />
-
-        {/* Global Chat Panel - In shrink mode, positioned after sidebar */}
-        {chatContext && chat.displayMode === 'shrink' && (
-          <GlobalChatPanel
-            contextData={chatContext}
-            promptSuggestions={promptSuggestions}
-            onNavigate={(target) => {
-              // Handle navigation commands from chat
-              if (target === 'Similarity' || target === 'AI Writing' || target === 'Flags' || target === 'Feedback' || target === 'Grading') {
-                setPrimaryTab(target);
-              }
-            }}
-          />
-        )}
       </div>
       {/* End of Main Content Container */}
-
-      {/* Global Chat Panel - In overlay mode, fixed positioned outside container */}
-      {chatContext && chat.displayMode === 'overlay' && (
-        <GlobalChatPanel
-          contextData={chatContext}
-          promptSuggestions={promptSuggestions}
-          onNavigate={(target) => {
-            // Handle navigation commands from chat
-            if (target === 'Similarity' || target === 'AI Writing' || target === 'Flags' || target === 'Feedback' || target === 'Grading') {
-              setPrimaryTab(target);
-            }
-          }}
-        />
-      )}
 
       {/* Toast notifications */}
       {toasts.map((toast) => (
@@ -720,8 +734,9 @@ function renderDocumentWithHighlights(
   html: string,
   highlights: DocumentData['highlights'],
   doc: DocumentData,
-  // _primaryTab: string = "Similarity", // Currently unused - comment annotations handled separately
+  primaryTab: string = "Similarity",
   showSimilarityHighlights: boolean = true,
+  pageNumber: number = 1,
 ): React.ReactNode[] {
   const paragraphs = html.split(/<\/p>\s*/i).filter(Boolean);
 
@@ -790,14 +805,55 @@ function renderDocumentWithHighlights(
       type: string;
     }> = [];
 
+    // Get AI Writing highlights for this paragraph if on AI Writing tab
+    const aiWritingHighlights =
+      primaryTab === 'AI Writing' && doc.aiWritingHighlights
+        ? doc.aiWritingHighlights
+            .filter((hl) => {
+              // Check if highlight overlaps with this paragraph's range
+              const matches = hl.page === pageNumber && hl.startOffset < paraBoundary.end && hl.endOffset > paraBoundary.start;
+              if (hl.page === pageNumber && paraIdx === 0) {
+                console.log('[AI Writing] Highlight check:', {
+                  id: hl.id,
+                  hlRange: [hl.startOffset, hl.endOffset],
+                  paraRange: [paraBoundary.start, paraBoundary.end],
+                  matches,
+                });
+              }
+              return matches;
+            })
+            .map((hl) => {
+              // Convert page-level offsets to paragraph-level offsets
+              const paraStart = Math.max(0, hl.startOffset - paraBoundary.start);
+              const paraEnd = Math.min(rawText.length, hl.endOffset - paraBoundary.start);
+              if (paraIdx === 0) {
+                console.log('[AI Writing] Converted offsets:', {
+                  id: hl.id,
+                  pageOffsets: [hl.startOffset, hl.endOffset],
+                  paraOffsets: [paraStart, paraEnd],
+                  text: rawText.slice(paraStart, paraEnd),
+                });
+              }
+              return {
+                id: hl.id,
+                aiWritingType: hl.type,
+                startOffset: paraStart,
+                endOffset: paraEnd,
+                type: 'ai-writing' as const,
+              };
+            })
+        : [];
+
     // Combine all annotations and sort by start offset
     const allAnnotations = [
-      // Only include similarity highlights if enabled
-      ...( 
-        showSimilarityHighlights
+      // Only include similarity highlights if enabled AND on Similarity tab
+      ...(
+        showSimilarityHighlights && primaryTab === 'Similarity'
           ? paraHighlights.map((hl) => ({ ...hl, type: 'similarity' as const }))
           : []
       ),
+      // Include AI Writing highlights when on AI Writing tab
+      ...aiWritingHighlights,
       ...feedbackAnnotations.map((ann) => ({ ...ann, type: 'comment' as const })),
       ...gradingAnnotations.map((ann) => ({ ...ann, type: 'grading' as const })),
     ].sort((a, b) => a.startOffset - b.startOffset);
@@ -829,6 +885,18 @@ function renderDocumentWithHighlights(
             matchCardId={similarityAnnotation.matchCardId}
             matchIndex={matchIndex}
             annotationType="similarity"
+          >
+            {match}
+          </AnnotationSpan>,
+        );
+      } else if (annotation.type === 'ai-writing') {
+        const aiWritingAnnotation = annotation as AIWritingAnnotation;
+        parts.push(
+          <AnnotationSpan
+            key={`ai-writing-${aiWritingAnnotation.id}-${i}`}
+            highlightId={aiWritingAnnotation.id}
+            annotationType="ai-writing"
+            aiWritingType={aiWritingAnnotation.aiWritingType}
           >
             {match}
           </AnnotationSpan>,

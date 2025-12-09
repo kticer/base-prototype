@@ -669,5 +669,52 @@
       "isExcluded": false,
       "matchCardId": "mc12"
     }
+  ],
+  "aiWritingHighlights": [
+    {
+      "id": "ai1",
+      "type": "ai-generated",
+      "startOffset": 1185,
+      "endOffset": 1550,
+      "text": "Baseball is a sport that has been enjoyed by millions of people around the world for over a century. It is a game that is played by two teams, each consisting of nine players, on a diamond-shaped field. The goal of the game is for one team to score more runs than the other team by hitting a ball and running around a series of bases.",
+      "page": 4,
+      "confidence": 87
+    },
+    {
+      "id": "ai2",
+      "type": "ai-paraphrased",
+      "startOffset": 1551,
+      "endOffset": 1891,
+      "text": "The history of baseball can be traced back to the mid-19th century, when a game called rounders was played in England. This game involved hitting a ball with a bat and running around a square field. Rounders eventually made its way to North America, where it was adapted into what we now know as baseball.",
+      "page": 4,
+      "confidence": 92
+    },
+    {
+      "id": "ai3",
+      "type": "ai-generated",
+      "startOffset": 460,
+      "endOffset": 815,
+      "text": "The game of baseball is played on a diamond-shaped field that is divided into two parts: the infield and the outfield. The infield is where the bases are located, and it includes the pitcher's mound, home plate, first base, second base, and third base. The outfield is the area beyond the infield, where the outfielders play.",
+      "page": 4,
+      "confidence": 85
+    },
+    {
+      "id": "ai4",
+      "type": "ai-paraphrased",
+      "startOffset": 816,
+      "endOffset": 1180,
+      "text": "If the batter does hit the ball, he must run around the bases in a counter-clockwise direction. If the batter hits the ball and it lands within the playing field, he becomes a runner and must try to advance to first base. If the ball is caught by a fielder before it lands, the batter is out.",
+      "page": 5,
+      "confidence": 78
+    },
+    {
+      "id": "ai5",
+      "type": "ai-generated",
+      "startOffset": 1181,
+      "endOffset": 1480,
+      "text": "The defense's goal is to prevent the runners from scoring by making outs. An out is made when a fielder catches a fly ball, tags a runner with the ball before he reaches a base, or throws the ball to a base before the runner can get there.",
+      "page": 5,
+      "confidence": 91
+    }
   ]
 }

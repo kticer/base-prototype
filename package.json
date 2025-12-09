@@ -8,14 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "jest",
-    "chat-api": "node server/index.js"
+    "test": "jest"
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
-    "@google/generative-ai": "^0.24.1",
     "@heroicons/react": "^2.2.0",
-    "express": "^5.1.0",
     "jszip": "^3.10.1",
     "path": "^0.12.7",
     "pdf-parse": "^1.1.1",

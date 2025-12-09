@@ -5,13 +5,15 @@ import {
   useHighlightColor,
 } from '../../hooks/useMatchInteraction';
 import { useHighlightSelection } from '../../hooks/useNavigation';
+import type { AIWritingType } from '../../types';
 
 interface AnnotationSpanProps {
   highlightId?: string;
   matchCardId?: string;
   matchIndex?: number;
   commentId?: string;
-  annotationType: "similarity" | "comment" | "grading";
+  annotationType: "similarity" | "comment" | "grading" | "ai-writing";
+  aiWritingType?: AIWritingType;
   children: React.ReactNode;
 }
 
@@ -31,9 +33,11 @@ export const AnnotationSpan: React.FC<AnnotationSpanProps> = React.memo(({
   matchIndex,
   commentId,
   annotationType,
+  aiWritingType,
   children,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
   const hoverHighlight = useHoverHighlight();
   const color = useHighlightColor(matchCardId || "");
   const { selectComment, selectedCommentId, navigation } = useStore();
@@ -64,6 +68,22 @@ export const AnnotationSpan: React.FC<AnnotationSpanProps> = React.memo(({
           borderColor: isChatReferenced ? color : (isHovered ? color : "transparent"),
           transition: "background-color 550ms ease, border-color 150ms ease, border-width 300ms ease",
           boxShadow: isChatReferenced ? `0 0 8px ${hexToRgba(color, 0.6)}` : 'none',
+        };
+      }
+      case "ai-writing": {
+        // AI Writing highlights - purple for paraphrased, cyan for generated
+        const baseColor = aiWritingType === 'ai-paraphrased' ? '#b78cfc' : '#52c7db';
+        let backgroundAlpha = 0.7; // Base 70% opacity from Figma
+
+        if (isSelected) {
+          backgroundAlpha = 0.85; // More opaque when selected
+        }
+
+        return {
+          backgroundColor: hexToRgba(baseColor, backgroundAlpha),
+          borderBottom: (isHovered || isSelected) ? `2px solid ${baseColor}` : 'none',
+          transition: "background-color 300ms ease, border-bottom 150ms ease",
+          cursor: "pointer",
         };
       }
       case "comment":
@@ -108,8 +128,10 @@ export const AnnotationSpan: React.FC<AnnotationSpanProps> = React.memo(({
       onSimilarityClick();
     } else if (annotationType === "comment" && commentId) {
       selectComment(commentId);
+    } else if (annotationType === "ai-writing") {
+      setIsSelected(!isSelected);
     }
-  }, [annotationType, onSimilarityClick, commentId, selectComment]);
+  }, [annotationType, onSimilarityClick, commentId, selectComment, isSelected]);
 
   return (
     <span

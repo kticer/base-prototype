@@ -39,6 +39,7 @@ export interface DocumentData {
   pages: Page[];
   highlights: Highlight[];
   matchCards: MatchCard[];
+  aiWritingHighlights?: AIWritingHighlight[];
 }
 
 export interface Highlight {
@@ -49,6 +50,18 @@ export interface Highlight {
   text: string;
   isExcluded: boolean;
   page: number;
+}
+
+export type AIWritingType = 'ai-generated' | 'ai-paraphrased';
+
+export interface AIWritingHighlight {
+  id: string;
+  type: AIWritingType;
+  startOffset: number;
+  endOffset: number;
+  text: string;
+  page: number;
+  confidence?: number; // Optional confidence score 0-100
 }
 
 export type MatchSourceType = 'Internet' | 'Submitted Works' | 'Publication';

@@ -1,8 +1,6 @@
-# UX AI Chatbot Prototype (Late 2025)
+# iThenticate Prototype
 
-An educational document analysis and grading application featuring AI-powered assistance for academic integrity review. This prototype demonstrates the "First to Insight" user journey, helping educators quickly understand and address similarity scores with intelligent, context-aware support.
-
-**Prototype Focus:** Chatbot vision for narratives (October 2025) - Story 1: From Score to Action in Under a Minute
+An educational document analysis and grading application built with React + TypeScript + Vite. This prototype demonstrates document similarity detection, AI writing analysis, feedback tools, and comprehensive grading workflows with a modern, design-system-driven UI.
 
 ## Overview
 
@@ -10,13 +8,13 @@ This React + TypeScript application simulates an iThenticate-like plagiarism det
 
 ### Key Features
 
-- **🎯 AI-Powered Analysis**: Context-aware chatbot that explains similarity scores, identifies issues, and suggests next steps
-- **⚡ Proactive Assistance**: Clickable prompt suggestions that auto-send for instant analysis
-- **🎬 Action Buttons**: AI offers interactive buttons like "Help me draft a comment" that execute actions directly
 - **📊 Similarity Detection**: Document highlighting with match cards showing sources (Internet, Submitted Works, Publications)
-- **💬 Feedback System**: Add comments, annotations, and feedback with AI assistance
+- **🤖 AI Writing Analysis**: Detect AI-generated content with percentage-based reporting and detailed highlights
+- **💬 Feedback System**: Add comments, annotations, strikethrough deletions, and point annotations
 - **📝 Grading Tools**: Rubric creation, scoring, and comprehensive grading workflows
+- **📈 Submission Management**: Sortable table with metrics (similarity, AI writing, flags, grades, viewed status)
 - **📈 Analytics**: Course-wide insights and submission statistics
+- **🎨 Design System**: Figma-integrated design tokens with typography, color, and spacing systems
 
 ## Quick Start
 
@@ -36,61 +34,45 @@ cd ux-chatbot-prototype
 npm install
 ```
 
-### Step 2: Start the Development Servers
+### Step 2: Start the Development Server
 
-You need **two terminals** running simultaneously:
-
-**Terminal 1 - Frontend (Vite):**
 ```bash
 npm run dev
 ```
 This starts the React app at `http://localhost:5173`
 
-**Terminal 2 - Chat API (Express):**
-```bash
-npm run chat-api
-```
-This starts the Gemini API proxy at `http://localhost:3001`
-
-### Step 3: (Optional) Configure Gemini API
-
-For real AI responses instead of mock data:
-
-1. Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Set the environment variable before starting the chat API:
-
-```bash
-# Terminal 2
-export GEMINI_API_KEY="your-api-key-here"
-npm run chat-api
-```
-
-**Without an API key:** The chat will work in mock mode with simulated responses that don't include action buttons.
-
-### Step 4: Test the Application
+### Step 3: Test the Application
 
 1. **Open the app**: Navigate to `http://localhost:5173`
-2. **Find the test document**:
-   - Go to "Research Papers – Fall 2024" folder
-   - Click "The Impact of Climate Change on Global Agriculture" (35% similarity)
-3. **Open the chat panel**: Click the chat icon or panel
-4. **Try proactive prompts**: Click "Explain this similarity score"
-5. **Use action buttons**: Click buttons like "[Help me draft a comment]" in the AI response
+2. **Browse submissions**:
+   - View the submission list with sortable columns
+   - Check similarity percentages, AI writing scores, and flags
+   - Click any submission to open the document viewer
+3. **Analyze documents**:
+   - Switch between Similarity, AI Writing, Flags, Feedback, and Grading tabs
+   - Click highlighted text to see match cards
+   - Navigate between matches using the sidebar
+4. **Add feedback**:
+   - Select text to open the floating action bar
+   - Add comments or strikethrough deletions
+   - Create point annotations
+5. **Grade submissions**:
+   - Switch to the Grading tab
+   - Apply rubrics or assign scores
+   - Add summary comments
 
 ### Expected Behavior
 
 ✅ **Working correctly:**
-- Proactive prompt pills appear above the chat input
-- Clicking prompts automatically sends the message
-- AI responds with clear explanations (shows "Gemini" label with real API)
-- Action buttons appear in AI responses
-- Clicking action buttons performs actions (drafts comments, navigates highlights, etc.)
-- System messages confirm actions: "✅ Comment added"
+- Submission table displays with all metrics
+- Document viewer shows highlights and match cards
+- Tab navigation switches between different views
+- Badges show accurate percentages from document data
+- Comments and annotations persist to localStorage
 
 ❌ **Common issues:**
-- **No action buttons**: API key not set (mock mode)
 - **"Document not found"**: Document validation error, restart dev server
-- **Chat not responding**: Chat API server not running in Terminal 2
+- **Highlights not showing**: Check that document JSON includes highlights array
 
 ## Development Commands
 
@@ -100,15 +82,9 @@ npm run dev              # Start Vite dev server (port 5173)
 npm run build            # Build for production
 npm run preview          # Preview production build
 
-# Backend (Chat API)
-npm run chat-api         # Start Express API server (port 3001)
-
 # Testing & Quality
 npm test                 # Run Jest tests
 npm run lint             # Run ESLint
-
-# All servers (requires compatible shell)
-npm run dev & npm run chat-api   # Run both servers
 ```
 
 ## Architecture
@@ -117,8 +93,7 @@ npm run dev & npm run chat-api   # Run both servers
 
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS
 - **State**: Zustand for global state management
-- **Backend**: Express.js proxy for Gemini API
-- **AI**: Google Gemini (Flash models preferred)
+- **Design System**: Figma-integrated design tokens (typography, colors, spacing)
 - **Storage**: LocalStorage for user data, comments, rubrics
 - **Testing**: Jest, React Testing Library
 
@@ -129,109 +104,117 @@ npm run dev & npm run chat-api   # Run both servers
 │   └── data/
 │       ├── documents/           # Document JSON files with similarity data
 │       └── folder_structure.json
-├── server/
-│   ├── index.js                 # Express API proxy for Gemini
-│   └── logger.js                # Structured logging
 ├── src/
 │   ├── components/
-│   │   ├── chatbot/             # Chat UI and action buttons
-│   │   ├── document/            # Document viewer components
-│   │   ├── feedback/            # Comments and grading
+│   │   ├── document/            # Document viewer (header, tabs, content, sidebar)
+│   │   ├── feedback/            # Comments, annotations, floating cards
+│   │   ├── inbox/               # Submission table, navbar, tabs, status badges
 │   │   ├── rubric/              # Rubric creator and editor
 │   │   └── settings/            # Feature flags and controls
 │   ├── hooks/                   # Custom React hooks
 │   ├── pages/                   # Top-level page components
-│   ├── services/
-│   │   └── geminiClient.ts      # Gemini API client
 │   ├── utils/
-│   │   └── chatActions.ts       # Action button parser
-│   ├── store.ts                 # Zustand store with action handlers
+│   │   └── validation.ts        # Runtime validation helpers
+│   ├── store.ts                 # Zustand store with state management
 │   └── types.ts                 # TypeScript types
 └── CLAUDE.md                    # Detailed architecture docs
 ```
 
 ## Key Concepts
 
-### Story 1: First to Insight
+### Design System Integration
 
-This prototype implements the "First to Insight" user journey where educators:
+The application uses a Figma-integrated design system with:
 
-1. **Open a paper** with a similarity score (e.g., 35%)
-2. **See proactive prompts** like "Explain this similarity score"
-3. **Get AI analysis** identifying the primary driver (e.g., 22% from uncited NOAA source)
-4. **Receive action buttons** like "[Help me draft a comment]"
-5. **Take action** with AI assistance to address the issue
+**Typography:**
+- Noto Sans (body text, labels, UI elements)
+- Lexend Deca (headings, titles)
+- Standardized size scale (headline-small, title-large, body-large, body-medium, label-small)
 
-### AI Action System
+**Color Tokens:**
+- Surface variants (background layers)
+- On-surface variants (text hierarchy)
+- Outline and dividers
+- Secondary (interactive elements)
 
-The AI can offer interactive action buttons using this syntax in responses:
-```
-[ACTION:action_type|Button Label|optional_payload]
-```
+**Component Patterns:**
+- Status badges (grades, similarity, AI writing, flags)
+- Processing states with animated spinners
+- Icon system with consistent sizing
+- Hover states and transitions
 
-**Available actions:**
-- `draft_comment` - AI drafts a comment about an issue
-- `add_comment` - Adds a comment to the document
-- `highlight_text` - Navigates to a specific match
-- `show_source` - Displays source details
-- `navigate` - Switches tabs
+### Document Analysis
 
-### Document Context
+Documents include multiple analysis types:
 
-The AI has access to rich document context including:
-- Similarity score and breakdown by source
-- Match cards with citation status (cited vs. uncited)
-- Academic integrity flags for problematic matches
-- Top issues ranked by severity
-- Current page and tab information
+**Similarity Detection:**
+- Percentage-based scoring
+- Match cards with source URLs and metadata
+- Highlighted text with bidirectional navigation
+- Exclude/include sources functionality
+
+**AI Writing Detection:**
+- Character-level coverage calculation
+- Highlighted sections showing AI-generated content
+- Percentage displayed in tab badges
+
+**Flags System:**
+- Academic integrity issues
+- Custom flags for review items
+- Count displayed in submission table
 
 ## Testing the Prototype
 
 ### Manual Testing Checklist
 
 ```
-□ Frontend server running (Terminal 1)
-□ Chat API server running (Terminal 2)
-□ Gemini API key set (for real AI responses)
-□ Navigate to Climate Change document (35% similarity)
-□ Chat panel opens
-□ Proactive prompts visible and clickable
-□ Click "Explain this similarity score"
-□ Message auto-sends (no manual Send click needed)
-□ AI responds with analysis
-□ Action buttons appear in response
-□ Click "[Help me draft a comment]" → see drafted text
-□ Click "[Add this comment]" → comment appears in Feedback tab
-□ Click "[Show me the issue]" → document scrolls to highlight
+□ Frontend server running (npm run dev)
+□ Submission list displays with all columns
+□ Sort by student, title, submitted, grade, similarity, AI writing, flags, viewed
+□ Click submission → document viewer opens
+□ Tab badges show correct percentages from document data
+□ Similarity tab → highlights visible, match cards in sidebar
+□ AI Writing tab → AI writing highlights visible, percentage matches badge
+□ Feedback tab → add comments, strikethrough text, point annotations
+□ Grading tab → assign scores, apply rubrics
+□ Comments persist to localStorage
 □ No errors in browser console
 ```
 
 ### Sample Test Documents
 
+Documents in `public/data/documents/` include:
+
 - **doc-story1-test**: Climate Change paper (35% similarity)
-  - 1 major uncited source (22%)
-  - Several properly cited sources
-  - Academic integrity issues flagged
-  - Best for testing Story 1 features
+  - Multiple match cards with sources
+  - AI writing highlights
+  - Best for testing full feature set
 
 - **doc-illustrious-baseball**: Baseball essay (27% similarity)
   - Multiple small matches
-  - Mixed citation quality
+  - Good for testing navigation
 
 ## Configuration
 
-### Environment Variables
+### Design System
 
-```bash
-# Required for real AI responses
-GEMINI_API_KEY=your-api-key-here
+The application uses Tailwind CSS with custom design tokens defined in `tailwind.config.js`:
 
-# Optional: Specify model (defaults to auto-selected Flash model)
-GEMINI_MODEL=gemini-1.5-flash-latest
+**Typography Scale:**
+- `headline-small`: 24px/32px, weight 500
+- `title-large`: 20px/28px, weight 600
+- `body-large`: 16px/24px, weight 600
+- `body-medium`: 14px/20px, weight 400
+- `label-small`: 12px/16px, weight 600
 
-# Optional: Require Flash models (default: true)
-GEMINI_REQUIRE_FLASH=true
-```
+**Color Tokens:**
+- `surface-variant-1`: #f9f9f9 (light background)
+- `surface-variant-2`: #f5f5f5 (lighter background)
+- `surface-dark`: #e5e5e5 (document background)
+- `surface-on-surface`: #191919 (primary text)
+- `surface-on-surface-variant-1`: #2d2d2d (secondary text)
+- `surface-on-surface-variant-2`: #636363 (tertiary text)
+- `secondary`: #0095ff (interactive blue)
 
 ### Feature Flags
 
@@ -248,14 +231,10 @@ localStorage.setItem('ithenticate-feature-flags', JSON.stringify({
 
 ## Troubleshooting
 
-### Chat not working
-- **Check**: Both servers running? `npm run dev` and `npm run chat-api`
-- **Check**: API key set? `echo $GEMINI_API_KEY`
-- **Check**: Browser console for errors (F12)
-
-### No action buttons in responses
-- **Cause**: Running in mock mode (no API key)
-- **Fix**: Set `GEMINI_API_KEY` and restart chat-api server
+### Percentages don't match
+- **Cause**: Badge percentages are calculated from document data
+- **Check**: Ensure document JSON has `similarity` field and `aiWritingHighlights` array
+- **Fix**: Verify calculations in DocumentViewer.tsx
 
 ### Document won't load
 - **Cause**: Validation error in document JSON
@@ -266,28 +245,21 @@ localStorage.setItem('ithenticate-feature-flags', JSON.stringify({
 - **Note**: Some pre-existing TypeScript warnings are expected
 - **Fix**: `npm run build` should complete despite warnings
 
-## Roadmap
+## Recent Updates
 
-### Phase 1: Foundation ✅ (Current)
-- Rich document context
-- Proactive clickable prompts
-- Action button system
-- Complete action dispatch
+### UI Redesign (December 2024) ✅
+- Figma-integrated design system
+- Complete submission list redesign
+- Document viewer header and tab styling
+- Status badge component library
+- Typography and color token system
 
-### Phase 2: Core Interactions (Next)
-- Highlight-chat bidirectional sync
-- Enhanced comment drafting with AI
-- Navigation between issues
-
-### Phase 3: Analytics & Insights
-- Course-wide similarity analytics
-- Student intervention lists
-- Pattern detection
-
-### Phase 4: Course Design
-- Collaborative rubric creation
-- Assignment design assistance
-- Syllabus integration
+### Current Features ✅
+- Similarity detection with match cards
+- AI writing analysis and highlighting
+- Feedback system with comments and annotations
+- Grading tools with rubric support
+- Submission management dashboard
 
 ## Contributing
 
@@ -298,9 +270,7 @@ localStorage.setItem('ithenticate-feature-flags', JSON.stringify({
 
 ## Additional Documentation
 
-- **CLAUDE.md** - Comprehensive architecture documentation
-- **DEVELOPMENT_GUIDE.md** - Development workflows and patterns
-- **RUBRIC_IMPORT_GUIDE.md** - Rubric creation and import
+- **CLAUDE.md** - Comprehensive architecture documentation for Claude Code
 
 ## License
 

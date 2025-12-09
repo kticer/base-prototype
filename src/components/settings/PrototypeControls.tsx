@@ -8,7 +8,7 @@ interface PrototypeControlsProps {
 }
 
 export function PrototypeControls({ children, className = 'fixed top-2 right-4' }: PrototypeControlsProps) {
-  const { toggleFeatureFlagsPanel, chat, setChatDisplayMode, comments, pointAnnotations } = useStore();
+  const { toggleFeatureFlagsPanel, comments, pointAnnotations } = useStore();
 
   const clearAnnotations = () => {
     const totalAnnotations = comments.length + pointAnnotations.length;
@@ -26,23 +26,6 @@ export function PrototypeControls({ children, className = 'fixed top-2 right-4' 
     }
   };
 
-  const clearChat = () => {
-    const currentScreen = useStore.getState().chat.currentScreen;
-    if (!currentScreen) {
-      alert('Chat is not open for any screen.');
-      return;
-    }
-    const messages = useStore.getState().chat.conversations[currentScreen]?.messages || [];
-    if (messages.length === 0) {
-      alert('No chat history to clear for this screen.');
-      return;
-    }
-    const ok = window.confirm(`Clear chat history for ${currentScreen}?`);
-    if (ok) {
-      useStore.getState().clearChatHistory(currentScreen);
-    }
-  };
-
   return (
     <div className={`${className} text-xs`} style={{ zIndex: 1001 }}>
       <details className="relative group">
@@ -50,14 +33,6 @@ export function PrototypeControls({ children, className = 'fixed top-2 right-4' 
           Prototype Controls
         </summary>
         <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-300 rounded shadow-lg p-2 space-y-1" style={{ zIndex: 1002 }}>
-          {/* Chat display mode toggle */}
-          <button
-            onClick={() => setChatDisplayMode(chat.displayMode === 'overlay' ? 'shrink' : 'overlay')}
-            className="block w-full text-left text-sm px-2 py-1 rounded bg-purple-600 text-white hover:bg-purple-700"
-          >
-            Chat: {chat.displayMode === 'overlay' ? 'Overlay' : 'Shrink Content'}
-          </button>
-
           {/* Feature flags */}
           <button
             onClick={toggleFeatureFlagsPanel}
@@ -72,14 +47,6 @@ export function PrototypeControls({ children, className = 'fixed top-2 right-4' 
             className="block w-full text-left text-sm px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700"
           >
             🗑️ Clear Annotations
-          </button>
-
-          {/* Clear chat history */}
-          <button
-            onClick={clearChat}
-            className="block w-full text-left text-sm px-2 py-1 rounded bg-gray-700 text-white hover:bg-gray-800"
-          >
-            🧹 Clear Chat History
           </button>
 
           {/* Additional page-specific controls */}

@@ -66,7 +66,7 @@ export function DocumentContent({
 
   return (
     <div
-      className="absolute inset-0 overflow-auto p-3 md:p-6 bg-gray-50 scroll-smooth"
+      className="absolute inset-0 overflow-auto p-3 md:p-6 bg-surface-dark scroll-smooth"
       style={{
         paddingRight: showComments ? '340px' : '24px',
       }}
@@ -109,7 +109,7 @@ export function DocumentContent({
           ))}
 
           {/* Floating Comment Cards - rendered next to their highlights using CSS positioning */}
-          {showComments && <FloatingCommentCards currentPage={currentPage} />}
+          {showComments && <FloatingCommentCards />}
         </div>
       </div>
 

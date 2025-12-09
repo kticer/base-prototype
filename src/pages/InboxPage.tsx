@@ -2,18 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { InboxNavBar } from "../components/inbox/InboxNavBar";
 import InboxTabs from "../components/inbox/InboxTabs";
-import SubmissionTable, { type Submission } from "../components/inbox/SubmissionTable";
+import SubmissionTableNew, { type Submission } from "../components/inbox/SubmissionTableNew";
 import { validateFolderStructure, safeJsonParse } from "../utils/validation";
 import { useNavigate } from "react-router-dom";
-import GlobalChatPanel from "../components/chatbot/GlobalChatPanel";
 import { PrototypeControls } from "../components/settings/PrototypeControls";
 import { FeatureFlagsModal } from "../components/settings/FeatureFlagsModal";
-import { useStore } from "../store";
 
 export default function InboxPage() {
   usePageTitle("Submissions – iThenticate Prototype");
   const navigate = useNavigate();
-  const { chat } = useStore();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -441,7 +438,7 @@ useEffect(() => {
 
       {/* Main content area */}
       <div className="bg-gray-50">
-        <InboxNavBar title="Submissions" onSearchChange={() => {}} screen="inbox" />
+        <InboxNavBar title="Submissions" onSearchChange={() => {}} />
         <InboxTabs />
         <div className="flex items-stretch gap-0">
           {/* Left content column with its own padding */}
@@ -469,7 +466,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <SubmissionTable
+          <SubmissionTableNew
             items={paginatedItems}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelection}
@@ -533,12 +530,6 @@ useEffect(() => {
           </div>
             </div>
           </div>
-
-          {/* Right: Chat panel in its own column (not constrained by left padding) */}
-          <GlobalChatPanel
-            contextData={chatContext}
-            promptSuggestions={promptSuggestions}
-          />
         </div>
       </div>
 

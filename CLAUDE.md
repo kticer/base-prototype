@@ -8,7 +8,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` - Start development server with Vite
 - `npm run build` - Build for production (runs TypeScript check + Vite build)
 - `npm run preview` - Preview production build locally
-- `npm run chat-api` - Start Express server for Gemini API proxy (for chat features)
 
 **Testing and Quality:**
 - `npm test` - Run Jest tests
@@ -16,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is an iThenticate prototype - an educational document analysis and grading application built with React + TypeScript + Vite. The application simulates document similarity analysis, provides AI-powered chat assistance, and includes comprehensive feedback and grading tools for educators.
+This is an iThenticate prototype - an educational document analysis and grading application built with React + TypeScript + Vite. The application simulates document similarity analysis and includes comprehensive feedback and grading tools for educators.
 
 ### Core Pages & Routes
 
@@ -58,12 +57,6 @@ The application uses Zustand (`src/store.ts`) for centralized state management w
 - Current rubric being edited
 - Cell selection and editing state
 
-**Chat System:**
-- Per-screen conversation history (inbox, document-viewer, settings, insights)
-- Display modes (overlay vs. shrink)
-- Panel width and open/close state
-- Artifact generation state
-
 **Feature Flags:**
 - Toggle experimental features on/off
 - Reusable comments bank
@@ -82,15 +75,15 @@ The application uses Zustand (`src/store.ts`) for centralized state management w
 - Bidirectional sync between highlights and match cards
 - Color coding for visual distinction
 - Show/hide similarity highlights toggle
+- Percentage displayed in tab badges and submission table
 
-#### 2. **AI Chat Assistant**
-- Global chat panel available on all pages
-- Context-aware responses based on current screen
-- Screen-specific conversation history
-- Integration with Google Gemini API (with mock fallback)
-- Express proxy server for API security (`server/index.js`)
-- Automatic model selection (prefers Flash models)
-- Streaming support with fallback handling
+#### 2. **AI Writing Analysis**
+- Character-level coverage calculation
+- Highlighted sections showing AI-generated content
+- Percentage calculation: `(AI chars / total chars) * 100`
+- Displayed in tab badges and submission table
+- Dedicated AI Writing tab with detailed report
+- Margin comments hidden on AI Writing tab
 
 #### 3. **Feedback System**
 - Text selection with floating action bar
@@ -98,7 +91,7 @@ The application uses Zustand (`src/store.ts`) for centralized state management w
 - QuickMark annotations
 - Strikethrough deletion with confirmation popup
 - Point annotations with locator dots and connector lines
-- Floating comment cards
+- Floating comment cards (hidden on AI Writing tab)
 - Auto-save functionality
 
 #### 4. **Grading & Rubrics**
@@ -109,11 +102,26 @@ The application uses Zustand (`src/store.ts`) for centralized state management w
 - Import/export rubrics as JSON
 - Ranged scoring and equal weights options
 
-#### 5. **Responsive Layout**
+#### 5. **Submission Management**
+- Sortable table with 8 columns (Student/Title, Submitted, Grade, Similarity, AI Writing, Flags, Viewed, More)
+- Processing states with animated spinners
+- Status badges for all metrics
+- Extension labels for deadline extensions
+- Click-to-open document viewer
+- Column-specific sort functionality
+
+#### 6. **Design System**
+- Figma-integrated design tokens
+- Typography scale (Noto Sans, Lexend Deca)
+- Color tokens (surface variants, on-surface hierarchy, secondary)
+- Consistent spacing and sizing
+- Hover states and transitions
+- Icon system with standardized sizing
+
+#### 7. **Responsive Layout**
 - Dynamic sidebar toggle
-- Chat panel with overlay and shrink modes
-- Resizable chat panel (300-800px)
-- Mobile-friendly submission table
+- Fixed column widths in submission table (1408px max-width)
+- Mobile-friendly breakpoints
 
 ### Document Data Structure
 
@@ -145,20 +153,33 @@ User-generated content (comments, grades, annotations) is stored separately in l
 ### Component Architecture
 
 **Document Viewer Components:**
-- `DocumentHeader` - Title, author, and toolbar
-- `PrimaryTabNavigation` - Tab switcher (Similarity, AI Writing, Flags, Feedback, Grading)
-- `DocumentContent` - Page rendering with zoom controls
-- `DocumentSidebar` - Match cards, feedback panel, grading panel
+- `DocumentHeader` - Logo, submission navigation (prev/next), action buttons (download, settings, details, help)
+- `HeaderIcons` - Centralized icon components (DownloadIcon, SettingsIcon, HelpIcon, NavigationIcons, etc.)
+- `PrimaryTabNavigation` - Tab switcher with dynamic percentage badges (Similarity %, AI Writing %, Flags count)
+- `DocumentContent` - Page rendering with zoom controls and surface-dark background
+- `DocumentSidebar` - Match cards, feedback panel, grading panel, AI writing report
 - `SidebarToggleButton` - Collapse/expand sidebar
 
-**Chat Components:**
-- `GlobalChatPanel` - Universal chat interface with screen context
-- `ChatButton` - Toggle chat panel (deprecated in favor of global panel)
-- `ChatbotPanel` - Legacy chat implementation
+**Inbox/Submission List Components:**
+- `InboxNavBar` - Header with logo, title/subtitle dropdown, and action buttons (Edit Settings, Tools, Help)
+- `InboxTabs` - Navigation tabs (Submission list, Insights) with action buttons (Search, Rerun Report, Download, Resync Grades)
+- `SubmissionTableNew` - Redesigned table with exact column widths (Student/Title, Submitted, Grade, Similarity, AI Writing, Flags, Viewed, More)
+- `StatusBadges` - Reusable badge components:
+  - `GradeBadge` - Blue rounded badge for scores
+  - `NotGraded` - Placeholder dash for ungraded
+  - `Processing` - Animated spinner with "Processing" text
+  - `NotSubmitted` - Placeholder for missing data
+  - `SimilarityBadge` - Percentage badge
+  - `AIWritingBadge` - Percentage with info icon
+  - `FlagsBadge` - Count with flag icon
+  - `ViewedCheck` - Green checkmark
+  - `ExtensionLabel` - Orange text for extensions
+  - `IntegrityBadge` - Red warning badge
+  - `MoreMenu` - Three-dot menu button
 
 **Feedback Components:**
 - `CommentCard` - Individual comment display and editing
-- `FloatingCommentCards` - Positioned comment cards in document
+- `FloatingCommentCards` - Positioned comment cards in document (hidden on AI Writing tab)
 - `FloatingActionBar` - Action menu for selected text
 - `StrikethroughDeletePopup` - Confirmation dialog for deletions
 - `FeedbackPanel` - Sidebar panel for managing comments
@@ -206,21 +227,6 @@ User-generated content (comments, grades, annotations) is stored separately in l
 5. `FloatingCommentCards` positions comment card
 6. `useAutoSave` persists to localStorage
 
-**Chat Interaction:**
-1. User opens chat → `GlobalChatPanel` loads screen context
-2. User sends message → POST to Express proxy at `/api/chat`
-3. Proxy forwards to Gemini API with auto-selected model
-4. Streaming response rendered in chat panel
-5. Conversation saved to localStorage per screen
-
-### Backend (Express Proxy)
-
-The `server/index.js` file provides:
-- Gemini API proxy to keep API keys secure
-- Automatic model selection via ListModels (prefers Flash 2.5 > 2.0 > 1.5)
-- Streaming support with fallback to non-streaming
-- Mock mode when GEMINI_API_KEY is not set
-- Structured logging with request IDs
 
 ### Validation & Type Safety
 
@@ -236,10 +242,61 @@ The application includes comprehensive validation:
 - `ithenticate-user-state-{documentId}` - Per-document user state
 - `ithenticate-rubrics` - All saved rubrics
 - `ithenticate-feature-flags` - Feature flag settings
-- `ithenticate-chat-history` - Chat conversations per screen
 - `ithenticate-reusable-comments` - Comment suggestion bank
 
 **Import/Export:**
 - User state can be exported as JSON for backup
 - Rubrics can be imported/exported for sharing
 - Reset to default functionality for documents
+
+### Design System
+
+The application uses a Figma-integrated design system defined in `tailwind.config.js`:
+
+**Typography:**
+- Font families: Noto Sans (body), Lexend Deca (headings)
+- Size scale: headline-small (24px), title-large (20px), body-large (16px), body-medium (14px), label-small (12px)
+- Line heights and font weights defined per size
+
+**Colors:**
+- `surface`: Base white (#ffffff)
+- `surface-variant-1`: Light background (#f9f9f9)
+- `surface-variant-2`: Lighter background (#f5f5f5)
+- `surface-dark`: Document background (#e5e5e5)
+- `surface-on-surface`: Primary text (#191919)
+- `surface-on-surface-variant-1`: Secondary text (#2d2d2d)
+- `surface-on-surface-variant-2`: Tertiary text (#636363)
+- `surface-outline`: Dividers and borders (#cdcdcd)
+- `surface-outline-dark`: Darker borders (#b0b0b0)
+- `secondary`: Interactive blue (#0095ff)
+
+**Component Patterns:**
+- Status badges use consistent padding (px-2 py-1), border-radius (rounded), and font styling
+- Icons sized at w-5 h-5 (20px) or w-6 h-6 (24px)
+- Hover states use bg-gray-50 or bg-black/5
+- Transitions use transition-colors
+- Active states use border bottom indicator with secondary color
+
+### AI Writing Percentage Calculation
+
+The AI Writing percentage is calculated dynamically from document data:
+
+```typescript
+// In DocumentViewer.tsx
+const aiWritingPercentage = useMemo(() => {
+  if (!doc || !doc.aiWritingHighlights || doc.aiWritingHighlights.length === 0) {
+    return 0;
+  }
+  let totalChars = 0;
+  doc.pages.forEach((page) => {
+    totalChars += page.content.length;
+  });
+  let aiChars = 0;
+  doc.aiWritingHighlights.forEach((hl) => {
+    aiChars += (hl.endOffset - hl.startOffset);
+  });
+  return totalChars > 0 ? Math.round((aiChars / totalChars) * 100) : 0;
+}, [doc]);
+```
+
+This ensures tab badges, sidebar reports, and submission table all show accurate percentages.

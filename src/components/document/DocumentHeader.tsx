@@ -3,8 +3,16 @@ import { useStore } from '../../store';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataManagementModal } from '../settings/DataManagementModal';
-import { ChatButton } from '../chatbot/ChatButton';
 import { PrototypeControls } from '../settings/PrototypeControls';
+import {
+  DownloadIcon,
+  SettingsIcon,
+  InformationIcon,
+  HelpIcon,
+  NavigateNextIcon,
+  NavigatePreviousIcon,
+  ArrowDropDownIcon,
+} from './HeaderIcons';
 
 interface DocumentHeaderProps {
   doc: DocumentData;
@@ -18,9 +26,10 @@ export function DocumentHeader({ doc, useSerifFont, onToggleSerifFont }: Documen
 
   return (
     <>
-      {/* Top Header Bar */}
-      <div className="bg-white border-b px-6 py-3 flex items-center justify-between relative">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Top Header Bar - Submission Workspace Header */}
+      <div className="bg-surface-variant-1 border-b-2 border-surface-outline px-4 py-2 flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center shrink-0">
           <button
             onClick={() => navigate('/')}
             className="hover:opacity-80 transition-opacity"
@@ -29,20 +38,79 @@ export function DocumentHeader({ doc, useSerifFont, onToggleSerifFont }: Documen
             <img
               src="/logo.svg"
               alt="iThenticate"
-              className="h-9 w-auto select-none"
+              className="h-10 w-auto select-none"
               draggable={false}
             />
           </button>
         </div>
-        <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-          <div className="font-semibold text-sm text-gray-900">{doc.author}</div>
-          <div className="text-xs text-gray-600">{doc.title}</div>
+
+        {/* Submission Navigation */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Previous Button */}
+          <button className="flex items-center justify-center p-2 rounded-lg hover:bg-black/5 transition-colors">
+            <NavigatePreviousIcon className="w-6 h-6 text-surface-on-surface" />
+          </button>
+
+          {/* Name and Document */}
+          <div className="flex flex-col items-center gap-1">
+            {/* Name and Dropdown */}
+            <div className="flex items-center">
+              <div className="flex items-center gap-1 font-sans font-semibold text-body-large text-surface-on-surface whitespace-nowrap">
+                <span>1 of 17:</span>
+                <span>{doc.author}</span>
+              </div>
+              <button className="flex items-center justify-center p-2 rounded-lg hover:bg-black/5 transition-colors">
+                <ArrowDropDownIcon className="w-6 h-6 text-surface-on-surface" />
+              </button>
+            </div>
+            {/* Document Title */}
+            <p className="font-sans text-body-medium text-black whitespace-nowrap max-w-[300px] truncate">
+              {doc.title}
+            </p>
+          </div>
+
+          {/* Next Button */}
+          <button className="flex items-center justify-center p-2 rounded-lg hover:bg-black/5 transition-colors">
+            <NavigateNextIcon className="w-6 h-6 text-surface-on-surface" />
+          </button>
         </div>
-        <div className="flex items-center gap-4 text-gray-500">
-          <ChatButton screen="document-viewer" />
-          <button title="Download" className="hover:text-gray-700">⬇️</button>
-          <button title="Details" className="hover:text-gray-700">ℹ️</button>
-          <button title="Help" className="hover:text-gray-700">❓</button>
+
+        {/* Header Functions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Download */}
+          <button className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-black/5 transition-colors">
+            <DownloadIcon className="w-5 h-5 text-surface-on-surface-variant-1" />
+            <span className="font-sans font-semibold text-label-small text-surface-on-surface-variant-1 leading-4">
+              Download
+            </span>
+          </button>
+
+          {/* Settings */}
+          <button
+            onClick={() => setIsDataModalOpen(true)}
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-black/5 transition-colors"
+          >
+            <SettingsIcon className="w-5 h-5 text-surface-on-surface-variant-1" />
+            <span className="font-sans font-semibold text-label-small text-surface-on-surface-variant-1 leading-4">
+              Settings
+            </span>
+          </button>
+
+          {/* Details */}
+          <button className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-black/5 transition-colors">
+            <InformationIcon className="w-5 h-5 text-surface-on-surface-variant-1" />
+            <span className="font-sans font-semibold text-label-small text-surface-on-surface-variant-1 leading-4">
+              Details
+            </span>
+          </button>
+
+          {/* Help */}
+          <button className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl hover:bg-black/5 transition-colors">
+            <HelpIcon className="w-5 h-5 text-surface-on-surface-variant-1" />
+            <span className="font-sans font-semibold text-label-small text-surface-on-surface-variant-1 leading-4">
+              Help
+            </span>
+          </button>
         </div>
       </div>
 
@@ -62,11 +130,11 @@ export function DocumentHeader({ doc, useSerifFont, onToggleSerifFont }: Documen
           📊 Manage Data...
         </button>
       </PrototypeControls>
-      
+
       {/* Data Management Modal */}
-      <DataManagementModal 
-        isOpen={isDataModalOpen} 
-        onClose={() => setIsDataModalOpen(false)} 
+      <DataManagementModal
+        isOpen={isDataModalOpen}
+        onClose={() => setIsDataModalOpen(false)}
       />
     </>
   );

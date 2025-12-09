@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { InboxNavBar } from '../components/inbox/InboxNavBar';
 import InboxTabs from '../components/inbox/InboxTabs';
 import { usePageTitle } from '../hooks/usePageTitle';
-import GlobalChatPanel from '../components/chatbot/GlobalChatPanel';
 import { PrototypeControls } from '../components/settings/PrototypeControls';
 import { FeatureFlagsModal } from '../components/settings/FeatureFlagsModal';
-import { useStore } from '../store';
 
 type AssignmentSettings = {
   assignmentName: string;
@@ -27,21 +25,8 @@ const DEFAULT_SETTINGS: AssignmentSettings = {
 
 export default function SettingsPage() {
   usePageTitle('Settings – iThenticate Prototype');
-  const { chat } = useStore();
   const [settings, setSettings] = useState<AssignmentSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState<string | null>(null);
-
-  // Context data for chat
-  const chatContext = {
-    screen: 'settings',
-    currentSettings: settings,
-  };
-
-  const promptSuggestions = [
-    "What are the current assignment settings?",
-    "Help me configure similarity threshold",
-    "Explain AI writing check settings",
-  ];
 
   useEffect(() => {
     try {
@@ -62,11 +47,8 @@ export default function SettingsPage() {
       <PrototypeControls />
 
       {/* Main content area */}
-      <div
-        className="flex-1 bg-gray-50 w-full transition-all duration-300"
-        style={chat.isOpen && chat.displayMode === 'shrink' ? { marginRight: `${chat.panelWidth}px` } : {}}
-      >
-        <InboxNavBar title="Settings" onSearchChange={() => {}} screen="settings" />
+      <div className="flex-1 bg-gray-50 w-full transition-all duration-300">
+        <InboxNavBar title="Settings" onSearchChange={() => {}} />
         <InboxTabs />
         <div className="px-8 pb-8 pt-6">
           <div className="max-w-3xl bg-white border rounded p-6 space-y-5">
@@ -134,12 +116,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-
-      {/* Global Chat Panel */}
-      <GlobalChatPanel
-        contextData={chatContext}
-        promptSuggestions={promptSuggestions}
-      />
 
       {/* Feature Flags Modal */}
       <FeatureFlagsModal />
