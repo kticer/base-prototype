@@ -30,7 +30,7 @@ function App() {
       console.error('Global error boundary caught:', error, errorInfo);
       // In a real app, you'd send this to an error reporting service
     }}>
-      <Router>
+      <Router basename="/base-prototype">
         <Routes>
           <Route path="/" element={<InboxPage />} />
           <Route path="/insights" element={<InsightsPage />} />

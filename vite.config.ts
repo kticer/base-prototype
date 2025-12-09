@@ -9,6 +9,7 @@ const __dirname = dirname(__filename)
 
 export default defineConfig({
   plugins: [react()],
+  base: '/base-prototype/', // Set base path for GitHub Pages
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
