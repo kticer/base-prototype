@@ -473,12 +473,10 @@ useEffect(() => {
             onToggleSelectAll={toggleSelectAll}
             areAllSelected={areAllSelected}
             onOpen={(id) => {
-              const url = `/data/documents/${id}`;
-              window.open(url, '_blank', 'noopener,noreferrer');
+              navigate(`/data/documents/${id}`);
             }}
             onOpenGrading={(id) => {
-              const url = `/data/documents/${id}?tab=grading`;
-              window.open(url, '_blank', 'noopener,noreferrer');
+              navigate(`/data/documents/${id}?tab=grading`);
             }}
             sortKey={sortKey}
             sortDir={sortDir}
