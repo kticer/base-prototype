@@ -263,7 +263,7 @@ export default function DocumentViewer() {
     const loadDocumentWithUserData = async () => {
       try {
         const validatedId = validateDocumentId(id);
-        const res = await fetch(`/data/documents/${validatedId}.json`);
+        const res = await fetch(`${import.meta.env.BASE_URL}data/documents/${validatedId}.json`);
 
         if (!res.ok) {
           throw new Error(
@@ -289,7 +289,7 @@ export default function DocumentViewer() {
 
         // Load actual similarity score from folder_structure.json
         try {
-          const folderRes = await fetch('/data/folder_structure.json');
+          const folderRes = await fetch(`${import.meta.env.BASE_URL}data/folder_structure.json`);
           if (folderRes.ok) {
             const folderData = await folderRes.json();
             const findSimilarity = (items: any[]): number | null => {

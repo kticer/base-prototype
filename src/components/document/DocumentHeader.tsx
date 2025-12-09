@@ -36,7 +36,7 @@ export function DocumentHeader({ doc, useSerifFont, onToggleSerifFont }: Documen
             title="Go to Inbox"
           >
             <img
-              src="/logo.svg"
+              src={`${import.meta.env.BASE_URL}logo.svg`}
               alt="iThenticate"
               className="h-10 w-auto select-none"
               draggable={false}

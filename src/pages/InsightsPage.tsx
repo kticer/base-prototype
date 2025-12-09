@@ -37,7 +37,7 @@ export default function InsightsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/data/folder_structure.json');
+        const res = await fetch(`${import.meta.env.BASE_URL}data/folder_structure.json`);
         if (!res.ok) throw new Error(`Failed to load folder structure: ${res.status}`);
         const data = await res.json();
 
@@ -57,7 +57,7 @@ export default function InsightsPage() {
         const meta: Array<{ id: string; title: string; author: string; similarity?: number }> = [];
         await Promise.all(
           docs.map(async (d) => {
-            const r = await fetch(`/data/documents/${d.id}.json`);
+            const r = await fetch(`${import.meta.env.BASE_URL}data/documents/${d.id}.json`);
             const t = await r.text();
             if (t.startsWith('<!DOCTYPE html')) return; // skip bad files in prototype
             try {

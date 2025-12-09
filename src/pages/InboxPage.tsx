@@ -22,7 +22,7 @@ export default function InboxPage() {
 useEffect(() => {
   const loadSubmissions = async () => {
     try {
-      const res = await fetch("/data/folder_structure.json");
+      const res = await fetch(`${import.meta.env.BASE_URL}data/folder_structure.json`);
       if (!res.ok) {
         throw new Error(`Failed to load folder structure: ${res.status} ${res.statusText}`);
       }

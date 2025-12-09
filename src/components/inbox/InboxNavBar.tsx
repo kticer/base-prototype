@@ -52,7 +52,7 @@ export const InboxNavBar: React.FC<InboxNavBarProps> = ({
           className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
         >
           <img
-            src="/logo.svg"
+            src={`${import.meta.env.BASE_URL}logo.svg`}
             alt="Turnitin"
             className="h-10 w-auto select-none"
             draggable={false}

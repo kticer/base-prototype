@@ -28,7 +28,7 @@ function extractDocuments(items: any[]): any[] {
 export async function loadCourseSubmissions(): Promise<CourseSubmission[]> {
   try {
     // Load folder structure
-    const response = await fetch('/data/folder_structure.json');
+    const response = await fetch(`${import.meta.env.BASE_URL}data/folder_structure.json`);
     if (!response.ok) {
       throw new Error('Failed to load folder structure');
     }
@@ -41,7 +41,7 @@ export async function loadCourseSubmissions(): Promise<CourseSubmission[]> {
     const submissions: CourseSubmission[] = await Promise.all(
       documentEntries.map(async (entry) => {
         try {
-          const docResponse = await fetch(`/data/documents/${entry.id}.json`);
+          const docResponse = await fetch(`${import.meta.env.BASE_URL}data/documents/${entry.id}.json`);
           if (!docResponse.ok) {
             console.warn(`Failed to load document: ${entry.id}`);
             return {
@@ -92,7 +92,7 @@ export async function loadSubmissionById(
 ): Promise<CourseSubmission | null> {
   try {
     // Load folder structure to get basic info
-    const response = await fetch('/data/folder_structure.json');
+    const response = await fetch(`${import.meta.env.BASE_URL}data/folder_structure.json`);
     if (!response.ok) {
       throw new Error('Failed to load folder structure');
     }
@@ -105,7 +105,7 @@ export async function loadSubmissionById(
     }
 
     // Load full document data
-    const docResponse = await fetch(`/data/documents/${id}.json`);
+    const docResponse = await fetch(`${import.meta.env.BASE_URL}data/documents/${id}.json`);
     if (!docResponse.ok) {
       return {
         id: entry.id,
