@@ -60,7 +60,7 @@ useEffect(() => {
 
       await Promise.all(
         allDocIds.map(async (id) => {
-          const url = `/data/documents/${id}.json`;
+          const url = `${import.meta.env.BASE_URL}data/documents/${id}.json`;
           console.log(`[fetch] Trying to load ${url}`);
           const res = await fetch(url);
           const text = await res.text();
