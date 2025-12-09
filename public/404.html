@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      // Store the path and redirect to the base URL
+      // The app will handle the routing
+      const path = window.location.pathname.replace('/base-prototype', '');
+      const search = window.location.search;
+      const hash = window.location.hash;
+      window.location.replace('/base-prototype/' + (path || '') + search + hash);
+    </script>
+  </head>
+  <body>
+    Redirecting...
+  </body>
+</html>
