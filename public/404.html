@@ -4,12 +4,10 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-      // Store the path and redirect to the base URL
-      // The app will handle the routing
-      const path = window.location.pathname.replace('/base-prototype', '');
-      const search = window.location.search;
-      const hash = window.location.hash;
-      window.location.replace('/base-prototype/' + (path || '') + search + hash);
+      // GitHub Pages SPA redirect solution
+      // Store the current path in sessionStorage and redirect to index
+      sessionStorage.setItem('redirect', window.location.pathname + window.location.search + window.location.hash);
+      window.location.replace('/base-prototype/');
     </script>
   </head>
   <body>
